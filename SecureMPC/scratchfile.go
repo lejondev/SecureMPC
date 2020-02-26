@@ -19,8 +19,13 @@ type ProtocolData struct {
 type Player struct {
 	secret      int
 	id          int
-	knownShares map[int][]int // The shares of this players secret will be in [id][i] for shares i = 1...n
+	knownShares map[int][]Share // The shares of this players secret will be in [id][i] for shares i = 1...n
 	// The known shares of another player pid will be in [pid][i] for shares i that this player knows
+}
+
+type Share struct {
+	value int
+	id    int
 }
 
 func MakeProtocolData(base, n int) *ProtocolData {
@@ -55,6 +60,7 @@ func MakeProtocolData(base, n int) *ProtocolData {
 		base:                base,
 		n:                   n,
 		t:                   int(math.Floor(float64((n - 1) / 2))),
+		participants:        participants,
 	}
 }
 func MakePlayer(secret, id int) *Player {
