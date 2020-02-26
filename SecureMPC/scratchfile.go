@@ -72,12 +72,13 @@ func SecureMPC() {
 	// h = polynomial
 	h := Polynomial{secret, coefs}
 
-	println("Polynomial is: " + h.toStr())
-
-	println("Shares are")
+	println()
+	println("OK! Polynomial is: h(x)= " + h.toStr())
+	println()
+	println("Shares, h(x), for x=1.." + strconv.Itoa(n) + " are: ")
 
 	// compute shares
-	var shares [6]int
+	var shares = make([]int, n+1)
 	for i := 1; i < n+1; i++ {
 		eval := h.eval(i)
 		shares[i] = int(math.Mod(float64(eval), float64(base)))
@@ -89,35 +90,49 @@ func SecureMPC() {
 	// -------------------
 
 	// Work with the shares ...
-	println("send and work with shares ...\n----")
+	println("Now send and work with shares ...\n----")
 
 	// -------------------
 	// Now Assume P_3 will recompute the share
 
-	// P_3 has kept s_3 and got s_4, s_5 from P_4, P_5 resp.
-	// that means we have s_3, s_4, s_5 available
-	known_shares := []int{0, 0, 0, shares[3], shares[4], shares[5]}
+	var known_shares = make([]int, 0)
+	var ids []int
+	println("Recompute secret using shares of participants")
+	for i := 1; i < t+2; i++ {
+		fmt.Printf("Please enter the participant ids: (1..%d) %d of %d: ", n, i, t+1)
+		var input int
+		if _, err := fmt.Scanf("%d", &input); err != nil {
+			log.Print("Input failed due to:  ", err)
+		}
+		for !(input < n+1 && input > 0) || contains(ids, input) {
+			log.Printf("Sorry, range of possible ids is 1..%d and no duplicates allowed, try again: ", n)
+			if _, err := fmt.Scanf("%d", &input); err != nil {
+				log.Print("Input failed due to:  ", err)
+			}
+		}
+		ids = append(ids, input)
+		known_shares = append(known_shares, shares[input])
+	}
 
-	println("Recompute secret using shares")
-	fmt.Printf("(3,%d), ", known_shares[3])
-	fmt.Printf("(4,%d), ", known_shares[4])
-	fmt.Printf("(5,%d), \n", known_shares[5])
+	println()
+	print("OK! Known shares for the ids  ")
+	for i := 0; i < len(ids); i++ {
+		print(strconv.Itoa(ids[i]) + ", ")
+	}
+	println("are: ")
+	for i := 0; i < len(known_shares); i++ {
+		print(strconv.Itoa(known_shares[i]) + " ")
+	}
 	println()
 
-	// P_3 finds the secret by computing h(0) using only the "recombination vector" which entries are
-	// the constant terms in the delta_i(x) polynomial where i=3..5 from lagrange interpolation
-
-	// delta_i(x) = product_{j=3..5,j!=i}( (x-j)/(i-j) )
-
 	// recombination vector
-	var recombination_vector [6]int
+	var recombination_vector = make([]int, 0)
 
-	var startC int = 3
-	var endC int = 5
+	println("Eval delta_i(0) for every id")
 
 	// evaluate polynomial at x=0
 	shares_sum := 0
-	for i := startC; i <= endC; i++ {
+	for index, i := range ids {
 
 		var delta_i_0 int // delta_i(0), because we evaluate h(x) at x=0
 
@@ -125,7 +140,7 @@ func SecureMPC() {
 		top := 1
 		bottom := 1
 
-		for j := startC; j <= endC; j++ {
+		for _, j := range ids {
 			if j != i {
 				top = top * -j
 				bottom = bottom * (i - j)
@@ -145,13 +160,13 @@ func SecureMPC() {
 		delta_i_0 = mod(delta_i_0, base)
 
 		// add to recombination vector
-		recombination_vector[i] = delta_i_0
+		recombination_vector = append(recombination_vector, delta_i_0)
 
 		fmt.Printf("delta_%d(0) = %d", i, delta_i_0)
 		println()
 
 		// sum all shares
-		shares_sum = shares_sum + known_shares[i]*delta_i_0
+		shares_sum = shares_sum + known_shares[index]*delta_i_0
 	}
 
 	println("Recombination vector is: ")
@@ -210,4 +225,13 @@ func (p *Polynomial) eval(x int) int {
 		constant += p.coefs[i] * int(math.Pow(float64(x), float64(exp)))
 	}
 	return constant
+}
+
+func contains(s []int, e int) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
