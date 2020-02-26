@@ -9,38 +9,74 @@ import (
 )
 
 type ProtocolData struct {
-	recombinationVector []int // The recombination vector is 1 indexed to make the math easier
-	base                int
-	n                   int
-	t                   int
-	participants        []*Player
+	base         int
+	n            int
+	t            int
+	participants []*Player
 }
 
 type Player struct {
 	secret      int
 	id          int
-	knownShares map[int][]Share // The shares of this players secret will be in [id][i] for shares i = 1...n
+	knownShares map[int]map[int]int // The shares of this players secret will be in [id][i] for shares i = 1...n
 	// The known shares of another player pid will be in [pid][i] for shares i that this player knows
+	// It is a map, that maps player ID's to a map of known shares.
+	// The map maps to a map of known shares for a given pid
+	// map[PlayerID] -> map[shareID] -> share
+	// It is pretty much a matrix, just with no entries in stead of 0 entries.
 }
 
-type Share struct {
-	value int
-	id    int
+func (p *ProtocolData) GetPlayer(id int) *Player {
+	return p.participants[id]
+}
+func (p *ProtocolData) GetTolerance() int {
+	return p.t
+}
+
+func (p *ProtocolData) GetNumberOfParticipants() int {
+	return p.n
 }
 
 func MakeProtocolData(base, n int) *ProtocolData {
 	// The recombination vector and participants array are 1 indexed to make the math easier
+
 	participants := make([]*Player, n+1)
-	recombinationVector := make([]int, n+1)
-	recombinationVector[0] = 0 // just some value, it should never be used
-	participants[0] = MakePlayer(0, 0)
 	for i := 1; i <= n; i++ {
+		participants[i] = MakePlayer(0, i, n) // Initial secret is just 0
+	}
+	participants[0] = MakePlayer(0, 0, n)
+	return &ProtocolData{
+		base:         base,
+		n:            n,
+		t:            int(math.Floor(float64((n - 1) / 2))),
+		participants: participants,
+	}
+}
+
+func MakePlayer(secret, id int, n int) *Player {
+	mapmap := map[int]map[int]int{} // Allocates all the maps for all players. Initially they are empty
+	for i := 1; i <= n; i++ {
+		mapmap[i] = map[int]int{}
+	}
+	return &Player{
+		secret:      secret,
+		id:          id,
+		knownShares: mapmap,
+	}
+}
+
+func (p *Player) AssignSecret(s int) {
+	p.secret = s
+}
+
+func (p *ProtocolData) makeRecombinationVector(knownShares map[int]int) {
+	// Computes recombination vector
+	for i, _ := range knownShares {
 		var delta_i_0 int // delta_i(0), because we evaluate h(x) at x=0
 		// top/bottom = (0-j)/(i-j)
 		top := 1
 		bottom := 1
-
-		for j := 1; j <= n; i++ {
+		for j, _ := range knownShares {
 			if j != i {
 				top = top * -j
 				bottom = bottom * (i - j)
@@ -48,50 +84,74 @@ func MakeProtocolData(base, n int) *ProtocolData {
 		}
 		// calculate the fraction as whole integer (modulo arithmetic)
 		// top/bottom = (0-j)/(i-j) = (0-j)*(i-j)^-1
+		base := p.base
 		top = mod(top, base)
 		bottom = mod(bottom, base)
 		delta_i_0 = top * modInverse(bottom, base)
 		delta_i_0 = mod(delta_i_0, base)
-		recombinationVector[i] = delta_i_0
-		participants[0] = MakePlayer(0, i) // Initial secret is just 0
-	}
-	return &ProtocolData{
-		recombinationVector: recombinationVector,
-		base:                base,
-		n:                   n,
-		t:                   int(math.Floor(float64((n - 1) / 2))),
-		participants:        participants,
-	}
-}
-func MakePlayer(secret, id int) *Player {
-	return &Player{
-		secret:      secret,
-		id:          id,
-		knownShares: map[int][]Share{},
 	}
 }
 
-func (p *Player) assignSecret(s int) {
-	p.secret = s
+func (p *Player) CreateShares(data ProtocolData) {
+	shares := makeShares(p.secret, data)
+	p.knownShares[p.id] = shares
 }
 
-func (p *Player) createShares(data ProtocolData) {
+func (p *Player) DistributeSecretShares(data *ProtocolData) {
+	for i := 1; i <= data.n; i++ {
+		p.SendShare(p.id, i, data.participants[i])
+	}
 }
 
-func (p *Player) distributeSecretShares(data ProtocolData) {
-
+func (p *Player) SendShare(idOfPlayer, idOfShare int, receiver *Player) {
+	senderKnown := p.knownShares[idOfPlayer]
+	// Should check that the sender knows share idOfShare
+	// Should probably check that it is currently unknown for the other player
+	receiver.knownShares[idOfPlayer][idOfShare] = senderKnown[idOfShare]
 }
 
-func (p *Player) sendShare(idOfPlayer, idOfShare, idOfReceiver int) {
-
+func (p *Player) RecomputeSecret(id int, data ProtocolData) int {
+	sum := 0
+	// Computes recombination vector
+	for i, v := range p.knownShares[id] {
+		var delta_i_0 int // delta_i(0), because we evaluate h(x) at x=0
+		// top/bottom = (0-j)/(i-j)
+		top := 1
+		bottom := 1
+		for j, _ := range p.knownShares[id] {
+			if j != i {
+				top = top * -j
+				bottom = bottom * (i - j)
+			}
+		}
+		// calculate the fraction as whole integer (modulo arithmetic)
+		// top/bottom = (0-j)/(i-j) = (0-j)*(i-j)^-1
+		base := data.base
+		top = mod(top, base)
+		bottom = mod(bottom, base)
+		delta_i_0 = top * modInverse(bottom, base)
+		delta_i_0 = mod(delta_i_0, base)
+		sum += v * delta_i_0
+	}
+	return mod(sum, data.base)
 }
 
-func (p *Player) recomputeSecret(id int, data ProtocolData) int {
-	return 0
+func makeShares(s int, data ProtocolData) map[int]int {
+	coefs := make([]int, data.t)
+	shares := map[int]int{}
+	for i := 0; i < data.t; i++ {
+		coefs[i] = rand.Intn(100) // Should probably be secure random
+	}
+	h := Polynomial{s, coefs}
+	// Share 0 is not a thing
+	for i := 1; i <= data.n; i++ {
+		eval := mod(h.eval(i), data.base)
+		shares[i] = eval
+	}
+	return shares
 }
 
 func SecureMPC() {
-
 	// finite field F_base
 	fmt.Println("Enter prime base for finite field: ")
 	var base int
@@ -317,4 +377,27 @@ func contains(s []int, e int) bool {
 		}
 	}
 	return false
+}
+
+func (p *Player) GetShares() []int {
+	arr := make([]int, 0, len(p.knownShares[p.id]))
+	for _, value := range p.knownShares[p.id] {
+		arr = append(arr, value)
+	}
+	return arr
+}
+
+func (p *Player) GetSharesOfId(id int) []int {
+	arr := make([]int, 0, len(p.knownShares[id]))
+	for _, value := range p.knownShares[id] {
+		arr = append(arr, value)
+	}
+	return arr
+}
+
+func (p *Player) GetMap() map[int]int {
+	return p.knownShares[p.id]
+}
+func (p *Player) GetMapOfId(id int) map[int]int {
+	return p.knownShares[id]
 }
