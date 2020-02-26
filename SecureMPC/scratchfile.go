@@ -11,14 +11,14 @@ import (
 func SecureMPC() {
 
 	// finite field F_base
-	println("Enter base for finite field: ")
+	fmt.Println("Enter prime base for finite field: ")
 	var base int
 	if _, err := fmt.Scan(&base); err != nil {
 		log.Print("Input failed due to:  ", err)
 	}
 
 	// secret = secret number to be shared
-	println("Enter the secret: ")
+	fmt.Println("Enter the secret: ")
 	var secret int
 	if _, err := fmt.Scan(&secret); err != nil {
 		log.Print("Input failed due to:  ", err)
@@ -26,7 +26,7 @@ func SecureMPC() {
 
 	// n = number of parties
 	// Their IDs are 1..n for P_1 .. P_n respectively, so C={1,2..n}
-	println("Enter number of participants: ")
+	fmt.Println("Enter number of participants: ")
 	var n int
 	if _, err := fmt.Scan(&n); err != nil {
 		log.Print("Input failed due to:  ", err)
@@ -35,16 +35,19 @@ func SecureMPC() {
 	// t = number of corrupt parties we want to tolerate
 	// ie <= t parties cannot learn share
 	// and need >t parties to learn share
-	println("Enter number of corrupted parties we want to tolerate: ")
-	var t int
-	if _, err := fmt.Scan(&t); err != nil {
-		log.Print("Input failed due to:  ", err)
-	}
-
+	/*
+		println("Enter number of corrupted parties we want to tolerate: ")
+		var t int
+		if _, err := fmt.Scan(&t); err != nil {
+			log.Print("Input failed due to:  ", err)
+		}
+	*/
+	// We can tolerate t < n/2 corruptions
+	t := int(math.Floor(float64((n - 1) / 2)))
 	// Coefficients
 	var coefs []int
 
-	println("Use random coefficients? (Y/n)")
+	fmt.Println("Use random coefficients? (Y/n)")
 	var inputCoeffs string
 	if _, err := fmt.Scan(&inputCoeffs); err != nil {
 		log.Print("Input failed due to:  ", err)
@@ -72,10 +75,9 @@ func SecureMPC() {
 	// h = polynomial
 	h := Polynomial{secret, coefs}
 
-	println()
-	println("OK! Polynomial is: h(x)= " + h.toStr())
-	println()
-	println("Shares, h(x), for x=1.." + strconv.Itoa(n) + " are: ")
+	fmt.Println("OK! Polynomial is: h(x)= " + h.toStr())
+
+	fmt.Println("Shares, h(x), for x=1.." + strconv.Itoa(n) + " are: ")
 
 	// compute shares
 	var shares = make([]int, n+1)
@@ -84,20 +86,20 @@ func SecureMPC() {
 		shares[i] = int(math.Mod(float64(eval), float64(base)))
 		fmt.Printf("%d ", shares[i])
 	}
-	println("\n----")
+	fmt.Println("----")
 
 	// send the shares securely to each participant P_1 .. P_n respectively
 	// -------------------
 
 	// Work with the shares ...
-	println("Now send and work with shares ...\n----")
+	fmt.Println("\n Now send and work with shares ...\n----")
 
 	// -------------------
 	// Now Assume P_3 will recompute the share
 
 	var known_shares = make([]int, 0)
 	var ids []int
-	println("Recompute secret using shares of participants")
+	fmt.Println("Recompute secret using shares of participants")
 	for i := 1; i < t+2; i++ {
 		fmt.Printf("Please enter the participant ids: (1..%d) %d of %d: ", n, i, t+1)
 		var input int
@@ -114,21 +116,20 @@ func SecureMPC() {
 		known_shares = append(known_shares, shares[input])
 	}
 
-	println()
-	print("OK! Known shares for the ids  ")
+	fmt.Println("OK! Known shares for the ids  ")
 	for i := 0; i < len(ids); i++ {
-		print(strconv.Itoa(ids[i]) + ", ")
+		fmt.Print(strconv.Itoa(ids[i]) + ", ")
 	}
-	println("are: ")
+	fmt.Println("are: ")
 	for i := 0; i < len(known_shares); i++ {
-		print(strconv.Itoa(known_shares[i]) + " ")
+		fmt.Print(strconv.Itoa(known_shares[i]) + ", ")
 	}
-	println()
+	fmt.Println()
 
 	// recombination vector
 	var recombination_vector = make([]int, 0)
 
-	println("Eval delta_i(0) for every id")
+	fmt.Println("Eval delta_i(0) for every id")
 
 	// evaluate polynomial at x=0
 	shares_sum := 0
@@ -150,10 +151,10 @@ func SecureMPC() {
 		// calculate the fraction as whole integer (modulo arithmetic)
 		// top/bottom = (0-j)/(i-j) = (0-j)*(i-j)^-1
 
-		// make bottom positive
-		if bottom < 0 {
-			bottom = base + bottom
-		}
+		// make top and bottom positive
+		top = negativeMod(top, base)
+		bottom = negativeMod(bottom, base)
+
 		delta_i_0 = top * modInverse(bottom, base)
 
 		// calculate the modulo
@@ -162,25 +163,21 @@ func SecureMPC() {
 		// add to recombination vector
 		recombination_vector = append(recombination_vector, delta_i_0)
 
-		fmt.Printf("delta_%d(0) = %d", i, delta_i_0)
-		println()
+		fmt.Printf("delta_%d(0) = %d \n", i, delta_i_0)
 
 		// sum all shares
 		shares_sum = shares_sum + known_shares[index]*delta_i_0
 	}
 
-	println("Recombination vector is: ")
+	fmt.Println("Recombination vector is: ")
 	for _, r := range recombination_vector {
 		fmt.Printf("%d, ", r)
 	}
-	println("\n")
+	fmt.Println("\n")
 
 	fmt.Printf("Shares sum: %d \n", shares_sum)
 	fmt.Printf("Secret is: %d\n", mod(shares_sum, base))
 
-	println()
-
-	println("hehe")
 }
 
 func mod(a int, m int) int {
@@ -225,6 +222,14 @@ func (p *Polynomial) eval(x int) int {
 		constant += p.coefs[i] * int(math.Pow(float64(x), float64(exp)))
 	}
 	return constant
+}
+
+func negativeMod(num int, base int) int {
+	if num < 0 {
+		return base - ((-num) % base)
+	} else {
+		return num % base
+	}
 }
 
 func contains(s []int, e int) bool {
