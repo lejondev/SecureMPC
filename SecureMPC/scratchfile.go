@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 )
 
 func SecureMPC() {
@@ -42,22 +43,31 @@ func SecureMPC() {
 	// Coefficients
 	var coefs []int
 
-	println("Do you want to enter coefficients of the polynomial yourself? (y/N)")
+	println("Use random coefficients? (Y/n)")
 	var inputCoeffs string
 	if _, err := fmt.Scan(&inputCoeffs); err != nil {
 		log.Print("Input failed due to:  ", err)
 	}
 
-	//var
-	//if (inputCoeffs == "y")
-	//
-	//println("Enter t coefficients: ")
-	//
-	//// Read from std input
-	//if _, err := fmt.Scan(&coefs);  err != nil {
-	//	log.Print("Reading coefficients failed, due to ", err)
-	//	return
-	//}
+	if inputCoeffs == "n" {
+		for i := 0; i < t; i++ {
+			fmt.Printf("Please enter coefficient %d / %d: ", i, t)
+			var input int
+			if _, err := fmt.Scanf("%d", &input); err != nil {
+				log.Print("Input failed due to:  ", err)
+			}
+			coefs = append(coefs, input)
+		}
+		//fmt.Printf("Enter %d (space seperates) coefficients: ", t)
+		//scanner := bufio.NewScanner(os.Stdin)
+		//for  {
+		//	fmt.Println(scanner.Text())
+		//}
+	} else {
+		for i := 0; i < t; i++ {
+			coefs = append(coefs, rand.Intn(100))
+		}
+	}
 
 	// use degree-t polynomial, where f(0)=secret, such that
 	// t + 1 data points [ID, share],, will be needed to
