@@ -67,7 +67,7 @@ func MakePlayer(secret, id int) *Player {
 	return &Player{
 		secret:      secret,
 		id:          id,
-		knownShares: map[int][]int{},
+		knownShares: map[int][]Share{},
 	}
 }
 
