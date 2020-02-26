@@ -2,41 +2,58 @@ package SecureMPC
 
 import (
 	"fmt"
+	"log"
 	"math"
 )
 
 func SecureMPC() {
 
-	println("Enter: base secret n t")
+	// finite field F_base
+	println("Enter base for finite field: ")
+	var base int
+	if _, err := fmt.Scan(&base); err != nil {
+		log.Print("Input failed due to:  ", err)
+	}
 
-	// In the finite field F_base
-	var base = 11
-
-	// secret = secret number to bed shared
-	var secret = 7
+	// secret = secret number to be shared
+	println("Enter the secret: ")
+	var secret int
+	if _, err := fmt.Scan(&secret); err != nil {
+		log.Print("Input failed due to:  ", err)
+	}
 
 	// n = number of parties
 	// Their IDs are 1..n for P_1 .. P_n respectively, so C={1,2..n}
-	var n = 5
+	println("Enter number of participants: ")
+	var n int
+	if _, err := fmt.Scan(&n); err != nil {
+		log.Print("Input failed due to:  ", err)
+	}
 
 	// t = number of corrupt parties we want to tolerate
 	// ie <= t parties cannot learn share
 	// and need >t parties to learn share
-	//var t = 2
-
-	// Read from std input
-	/*
-		if _, err := fmt.Scan(&base, &secret, &n, &t);  err != nil {
-			log.Print("Reading base, secret, n, t failed, due to ", err)
-			return
-		}*/
+	println("Enter number of corrupted parties we want to tolerate: ")
+	var t int
+	if _, err := fmt.Scan(&t); err != nil {
+		log.Print("Input failed due to:  ", err)
+	}
 
 	// Coefficients
 	var coefs []int
 
-	println("Enter t coefficients: ")
+	println("Do you want to enter coefficients of the polynomial yourself? (y/N)")
+	var inputCoeffs string
+	if _, err := fmt.Scan(&inputCoeffs); err != nil {
+		log.Print("Input failed due to:  ", err)
+	}
 
-	// Read from std input
+	//var
+	//if (inputCoeffs == "y")
+	//
+	//println("Enter t coefficients: ")
+	//
+	//// Read from std input
 	//if _, err := fmt.Scan(&coefs);  err != nil {
 	//	log.Print("Reading coefficients failed, due to ", err)
 	//	return
