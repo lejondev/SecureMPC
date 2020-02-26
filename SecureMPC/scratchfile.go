@@ -58,11 +58,6 @@ func SecureMPC() {
 			}
 			coefs = append(coefs, input)
 		}
-		//fmt.Printf("Enter %d (space seperates) coefficients: ", t)
-		//scanner := bufio.NewScanner(os.Stdin)
-		//for  {
-		//	fmt.Println(scanner.Text())
-		//}
 	} else {
 		for i := 0; i < t; i++ {
 			coefs = append(coefs, rand.Intn(100))
