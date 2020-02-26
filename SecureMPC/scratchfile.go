@@ -8,6 +8,82 @@ import (
 	"strconv"
 )
 
+type ProtocolData struct {
+	recombinationVector []int // The recombination vector is 1 indexed to make the math easier
+	base                int
+	n                   int
+	t                   int
+	participants        []*Player
+}
+
+type Player struct {
+	secret      int
+	id          int
+	knownShares map[int][]int // The shares of this players secret will be in [id][i] for shares i = 1...n
+	// The known shares of another player pid will be in [pid][i] for shares i that this player knows
+}
+
+func MakeProtocolData(base, n int) *ProtocolData {
+	// The recombination vector and participants array are 1 indexed to make the math easier
+	participants := make([]*Player, n+1)
+	recombinationVector := make([]int, n+1)
+	recombinationVector[0] = 0 // just some value, it should never be used
+	participants[0] = MakePlayer(0, 0)
+	for i := 1; i <= n; i++ {
+		var delta_i_0 int // delta_i(0), because we evaluate h(x) at x=0
+		// top/bottom = (0-j)/(i-j)
+		top := 1
+		bottom := 1
+
+		for j := 1; j <= n; i++ {
+			if j != i {
+				top = top * -j
+				bottom = bottom * (i - j)
+			}
+		}
+		// calculate the fraction as whole integer (modulo arithmetic)
+		// top/bottom = (0-j)/(i-j) = (0-j)*(i-j)^-1
+		top = mod(top, base)
+		bottom = mod(bottom, base)
+		delta_i_0 = top * modInverse(bottom, base)
+		delta_i_0 = mod(delta_i_0, base)
+		recombinationVector[i] = delta_i_0
+		participants[0] = MakePlayer(0, i) // Initial secret is just 0
+	}
+	return &ProtocolData{
+		recombinationVector: recombinationVector,
+		base:                base,
+		n:                   n,
+		t:                   int(math.Floor(float64((n - 1) / 2))),
+	}
+}
+func MakePlayer(secret, id int) *Player {
+	return &Player{
+		secret:      secret,
+		id:          id,
+		knownShares: map[int][]int{},
+	}
+}
+
+func (p *Player) assignSecret(s int) {
+	p.secret = s
+}
+
+func (p *Player) createShares(data ProtocolData) {
+}
+
+func (p *Player) distributeSecretShares(data ProtocolData) {
+
+}
+
+func (p *Player) sendShare(idOfPlayer, idOfShare, idOfReceiver int) {
+
+}
+
+func (p *Player) recomputeSecret(id int, data ProtocolData) int {
+	return 0
+}
+
 func SecureMPC() {
 
 	// finite field F_base
@@ -152,8 +228,8 @@ func SecureMPC() {
 		// top/bottom = (0-j)/(i-j) = (0-j)*(i-j)^-1
 
 		// make top and bottom positive
-		top = negativeMod(top, base)
-		bottom = negativeMod(bottom, base)
+		top = mod(top, base)
+		bottom = mod(bottom, base)
 
 		delta_i_0 = top * modInverse(bottom, base)
 
@@ -180,8 +256,12 @@ func SecureMPC() {
 
 }
 
-func mod(a int, m int) int {
-	return int(math.Mod(float64(a), float64(m)))
+func mod(num int, base int) int {
+	if num < 0 {
+		return base - ((-num) % base)
+	} else {
+		return num % base
+	}
 }
 
 // A naive method to find modulor
@@ -222,14 +302,6 @@ func (p *Polynomial) eval(x int) int {
 		constant += p.coefs[i] * int(math.Pow(float64(x), float64(exp)))
 	}
 	return constant
-}
-
-func negativeMod(num int, base int) int {
-	if num < 0 {
-		return base - ((-num) % base)
-	} else {
-		return num % base
-	}
 }
 
 func contains(s []int, e int) bool {
