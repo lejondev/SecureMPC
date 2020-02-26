@@ -38,11 +38,10 @@ func (p *ProtocolData) GetNumberOfParticipants() int {
 }
 
 func MakeProtocolData(base, n int) *ProtocolData {
-	// The recombination vector and participants array are 1 indexed to make the math easier
-
 	participants := make([]*Player, n+1)
 	for i := 1; i <= n; i++ {
-		participants[i] = MakePlayer(0, i, n) // Initial secret is just 0
+		participants[i] = MakePlayer(0, i, n)
+		// Initial secret is just 0
 	}
 	participants[0] = MakePlayer(0, 0, n)
 	return &ProtocolData{
@@ -67,29 +66,6 @@ func MakePlayer(secret, id int, n int) *Player {
 
 func (p *Player) AssignSecret(s int) {
 	p.secret = s
-}
-
-func (p *ProtocolData) makeRecombinationVector(knownShares map[int]int) {
-	// Computes recombination vector
-	for i, _ := range knownShares {
-		var delta_i_0 int // delta_i(0), because we evaluate h(x) at x=0
-		// top/bottom = (0-j)/(i-j)
-		top := 1
-		bottom := 1
-		for j, _ := range knownShares {
-			if j != i {
-				top = top * -j
-				bottom = bottom * (i - j)
-			}
-		}
-		// calculate the fraction as whole integer (modulo arithmetic)
-		// top/bottom = (0-j)/(i-j) = (0-j)*(i-j)^-1
-		base := p.base
-		top = mod(top, base)
-		bottom = mod(bottom, base)
-		delta_i_0 = top * modInverse(bottom, base)
-		delta_i_0 = mod(delta_i_0, base)
-	}
 }
 
 func (p *Player) CreateShares(data ProtocolData) {
@@ -142,6 +118,7 @@ func makeShares(s int, data ProtocolData) map[int]int {
 	for i := 0; i < data.t; i++ {
 		coefs[i] = rand.Intn(100) // Should probably be secure random
 	}
+	// Could also allow custom polynomial here
 	h := Polynomial{s, coefs}
 	// Share 0 is not a thing
 	for i := 1; i <= data.n; i++ {
@@ -378,6 +355,8 @@ func contains(s []int, e int) bool {
 	}
 	return false
 }
+
+// Some functions that might be useful for testing or debugging or whatever
 
 func (p *Player) GetShares() []int {
 	arr := make([]int, 0, len(p.knownShares[p.id]))
