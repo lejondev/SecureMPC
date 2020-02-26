@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"strconv"
 )
 
 func SecureMPC() {
@@ -71,9 +72,11 @@ func SecureMPC() {
 	// h = polynomial
 	h := Polynomial{secret, coefs}
 
+	println("Polynomial is: " + h.toStr())
+
 	println("Shares are")
 
-	// compute shares 1..5
+	// compute shares
 	var shares [6]int
 	for i := 1; i < n+1; i++ {
 		eval := h.eval(i)
@@ -189,6 +192,15 @@ func modInverse(a int, m int) int {
 type Polynomial struct {
 	constant int
 	coefs    []int
+}
+
+func (p *Polynomial) toStr() string {
+	str := strconv.Itoa(p.constant)
+	for i := 0; i < len(p.coefs); i++ {
+		var exp = i + 1
+		str = str + " + " + strconv.Itoa(p.coefs[i]) + "x^" + strconv.Itoa(exp)
+	}
+	return str
 }
 
 func (p *Polynomial) eval(x int) int {
