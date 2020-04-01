@@ -6,7 +6,7 @@ import (
 )
 
 func TestShares(t *testing.T) {
-	protocol := SecureMPC.MakeProtocolData(13, 10)
+	protocol := SecureMPC.MakeProtocolData(29, 20)
 	player1 := protocol.GetPlayer(1)
 	secret := 5
 	player1.AssignSecret(secret)
