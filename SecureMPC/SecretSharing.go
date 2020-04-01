@@ -149,12 +149,19 @@ func PlaySecureMPC() {
 		log.Print("Input failed due to:  ", err)
 	}
 
-	// n = number of parties
+	// n = number of participants
 	// Their IDs are 1..n for P_1 .. P_n respectively, so C={1,2..n}
-	fmt.Print("Enter number of participants (n): ")
 	var n int
+	fmt.Print("Enter number of participants (n): ")
 	if _, err := fmt.Scan(&n); err != nil {
 		log.Print("Input failed due to:  ", err)
+	}
+	for !(0 < n && n < base) {
+		log.Printf("Sorry, n must be smaller than the base (n<base). You chose base=%d, n=%d. Try again.", base, n)
+		fmt.Print("Enter number of participants (n): ")
+		if _, err := fmt.Scan(&n); err != nil {
+			log.Print("Input failed due to:  ", err)
+		}
 	}
 
 	// secret = secret number to be shared
