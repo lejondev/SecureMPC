@@ -19,9 +19,10 @@ type ProtocolData struct {
 
 // Player contains the information a player has and learns along the way
 type Player struct {
-	secret      int                 // secret is the secure info to be shared
-	id          int                 // id is the identifier of this player
-	knownShares map[int]map[int]int // knownShares is a 2D map, that maps player ID's (pid) to a map of known shares
+	secret               int // secret is the secure info to be shared
+	id                   int // id is the identifier of this player
+	recombination_vector []int
+	knownShares          map[int]map[int]int // knownShares is a 2D map, that maps player ID's (pid) to a map of known shares
 	// of a given player.
 	// map[PlayerID] -> map[shareID] -> share
 	// The shares of this players secret will be in [id][i] for shares i = 1..n
@@ -85,16 +86,19 @@ func (p *Player) DistributeSecretShares(data *ProtocolData) {
 	}
 }
 
-// SendShare will "send" a specified share of this player to another specified player
+// SendShare will "send" a specified share (idOfShare) of this player (p and idOfPlayer) to
+// another specified player (receiver)
 func (p *Player) SendShare(idOfPlayer, idOfShare int, receiver *Player) {
-	senderKnown := p.knownShares[idOfPlayer]
-	// TODO: Should check that the sender knows share idOfShare
-	// TODO: Should probably check that it is currently unknown for the other player
-	receiver.knownShares[idOfPlayer][idOfShare] = senderKnown[idOfShare]
+	theShare := p.knownShares[idOfPlayer][idOfShare]
+	// TODO: Should check that the sender knows share idOfShare (prevent not-an-element-error)
+	// TODO: Should probably check that it is currently unknown for the other player (prevent overriding)
+	receiver.knownShares[idOfPlayer][idOfShare] = theShare
 }
 
 func (p *Player) RecomputeSecret(id int, data ProtocolData) int {
 	sum := 0
+	p.recombination_vector = make([]int, 0)
+
 	// Computes recombination vector
 	for i, v := range p.knownShares[id] {
 		var delta_i_0 int // delta_i(0), because we evaluate h(x) at x=0
@@ -114,6 +118,8 @@ func (p *Player) RecomputeSecret(id int, data ProtocolData) int {
 		bottom = mod(bottom, base)
 		delta_i_0 = top * modInverse(bottom, base)
 		delta_i_0 = mod(delta_i_0, base)
+		fmt.Printf("delta_%d(0) = %d \n", i, delta_i_0)
+		p.recombination_vector = append(p.recombination_vector, delta_i_0) // remember recomb. vector
 		sum += v * delta_i_0
 	}
 	return mod(sum, data.base)
@@ -137,172 +143,87 @@ func makeShares(s int, data ProtocolData) map[int]int {
 
 func PlaySecureMPC() {
 	// finite field F_base
-	fmt.Println("Enter prime base for finite field: ")
+	fmt.Print("Enter prime base for finite field (base): ")
 	var base int
 	if _, err := fmt.Scan(&base); err != nil {
 		log.Print("Input failed due to:  ", err)
 	}
 
-	// secret = secret number to be shared
-	fmt.Println("Enter the secret: ")
-	var secret int
-	if _, err := fmt.Scan(&secret); err != nil {
-		log.Print("Input failed due to:  ", err)
-	}
-
 	// n = number of parties
 	// Their IDs are 1..n for P_1 .. P_n respectively, so C={1,2..n}
-	fmt.Println("Enter number of participants: ")
+	fmt.Print("Enter number of participants (n): ")
 	var n int
 	if _, err := fmt.Scan(&n); err != nil {
 		log.Print("Input failed due to:  ", err)
 	}
 
-	// t = number of corrupt parties we want to tolerate
-	// ie <= t parties cannot learn share
-	// and need >t parties to learn share
-	/*
-		println("Enter number of corrupted parties we want to tolerate: ")
-		var t int
-		if _, err := fmt.Scan(&t); err != nil {
-			log.Print("Input failed due to:  ", err)
-		}
-	*/
-	// We can tolerate t < n/2 corruptions
-	t := int(math.Floor(float64((n - 1) / 2)))
-	// Coefficients
-	var coefs []int
-
-	fmt.Println("Use random coefficients? (Y/n)")
-	var inputCoeffs string
-	if _, err := fmt.Scan(&inputCoeffs); err != nil {
+	// secret = secret number to be shared
+	fmt.Print("Enter the secret (secret): ")
+	var secret int
+	if _, err := fmt.Scan(&secret); err != nil {
 		log.Print("Input failed due to:  ", err)
 	}
 
-	if inputCoeffs == "n" {
-		for i := 0; i < t; i++ {
-			fmt.Printf("Please enter coefficient %d / %d: ", i, t)
-			var input int
-			if _, err := fmt.Scanf("%d", &input); err != nil {
-				log.Print("Input failed due to:  ", err)
-			}
-			coefs = append(coefs, input)
-		}
-	} else {
-		for i := 0; i < t; i++ {
-			coefs = append(coefs, rand.Intn(100))
-		}
-	}
+	fmt.Printf("\nOK! base=%d, n=%d, secret=%d\n", base, n, secret)
 
-	// use degree-t polynomial, where f(0)=secret, such that
-	// t + 1 data points [ID, share],, will be needed to
-	// recreate the polynomial and retrieve the share f(0)=secret
+	// Create the protocol control object
+	protocol := MakeProtocolData(base, n)
 
-	// h = polynomial
-	h := Polynomial{secret, coefs}
+	// Create a player (us, ie we are player1) and assign the secret
+	player1 := protocol.GetPlayer(1)
+	player1.AssignSecret(secret)
 
-	fmt.Println("OK! Polynomial is: h(x)= " + h.toStr())
+	// Create polynomial and then, compute shares of the secret
+	player1.CreateShares(*protocol)
 
-	fmt.Println("Shares, h(x), for x=1.." + strconv.Itoa(n) + " are: ")
+	// TODO: print used polynomial
+	//fmt.Println("OK! Polynomial is: h(x)= " + player1.GetPolynomial().toStr())
 
-	// compute shares
-	var shares = make([]int, n+1)
-	for i := 1; i < n+1; i++ {
-		eval := h.eval(i)
-		shares[i] = int(math.Mod(float64(eval), float64(base)))
+	// Print shares
+	var shares = player1.GetShares()
+	fmt.Println("Shares h(x), for x=1.." + strconv.Itoa(n) + " are: ")
+	for i := 0; i < len(shares); i++ {
 		fmt.Printf("%d ", shares[i])
-	}
-	fmt.Println("----")
-
-	// send the shares securely to each participant P_1 .. P_n respectively
-	// -------------------
-
-	// Work with the shares ...
-	fmt.Println("\n Now send and work with shares ...\n----")
-
-	// -------------------
-	// Now Assume P_3 will recompute the share
-
-	var known_shares = make([]int, 0)
-	var ids []int
-	fmt.Println("Recompute secret using shares of participants")
-	for i := 1; i < t+2; i++ {
-		fmt.Printf("Please enter the participant ids: (1..%d) %d of %d: ", n, i, t+1)
-		var input int
-		if _, err := fmt.Scanf("%d", &input); err != nil {
-			log.Print("Input failed due to:  ", err)
-		}
-		for !(input < n+1 && input > 0) || contains(ids, input) {
-			log.Printf("Sorry, range of possible ids is 1..%d and no duplicates allowed, try again: ", n)
-			if _, err := fmt.Scanf("%d", &input); err != nil {
-				log.Print("Input failed due to:  ", err)
-			}
-		}
-		ids = append(ids, input)
-		known_shares = append(known_shares, shares[input])
-	}
-
-	fmt.Println("OK! Known shares for the ids  ")
-	for i := 0; i < len(ids); i++ {
-		fmt.Print(strconv.Itoa(ids[i]) + ", ")
-	}
-	fmt.Println("are: ")
-	for i := 0; i < len(known_shares); i++ {
-		fmt.Print(strconv.Itoa(known_shares[i]) + ", ")
-	}
-	fmt.Println()
-
-	// recombination vector
-	var recombination_vector = make([]int, 0)
-
-	fmt.Println("Eval delta_i(0) for every id")
-
-	// evaluate polynomial at x=0
-	shares_sum := 0
-	for index, i := range ids {
-
-		var delta_i_0 int // delta_i(0), because we evaluate h(x) at x=0
-
-		// top/bottom = (0-j)/(i-j)
-		top := 1
-		bottom := 1
-
-		for _, j := range ids {
-			if j != i {
-				top = top * -j
-				bottom = bottom * (i - j)
-			}
-		}
-
-		// calculate the fraction as whole integer (modulo arithmetic)
-		// top/bottom = (0-j)/(i-j) = (0-j)*(i-j)^-1
-
-		// make top and bottom positive
-		top = mod(top, base)
-		bottom = mod(bottom, base)
-
-		delta_i_0 = top * modInverse(bottom, base)
-
-		// calculate the modulo
-		delta_i_0 = mod(delta_i_0, base)
-
-		// add to recombination vector
-		recombination_vector = append(recombination_vector, delta_i_0)
-
-		fmt.Printf("delta_%d(0) = %d \n", i, delta_i_0)
-
-		// sum all shares
-		shares_sum = shares_sum + known_shares[index]*delta_i_0
-	}
-
-	fmt.Println("Recombination vector is: ")
-	for _, r := range recombination_vector {
-		fmt.Printf("%d, ", r)
 	}
 	fmt.Println("\n")
 
-	fmt.Printf("Shares sum: %d \n", shares_sum)
-	fmt.Printf("Secret is: %d\n", mod(shares_sum, base))
+	// send the shares securely to each other participant P_1 .. P_n respectively
+	player1.DistributeSecretShares(protocol)
+	fmt.Printf("Now send shares to players 1..%d\n----\n", n)
+
+	// Recomputing player
+	fmt.Print("Enter id of player that should recompute: ")
+	var idPlayer2 int
+	if _, err := fmt.Scan(&idPlayer2); err != nil {
+		log.Print("Input failed due to:  ", err)
+	}
+
+	// Now player2 will recompute the secret
+	player2 := protocol.GetPlayer(idPlayer2) // Receiving player
+
+	// We can tolerate t < n/2 corruptions
+	var t = protocol.GetTolerance()
+
+	// Send shares i=3..c+3 of secret of player1, from the respective players, to player2
+	for i := 3; i <= t+3; i++ {
+		sendingPlayer := protocol.GetPlayer(i)
+		sendingPlayer.SendShare(1, i, player2) // Sends the share they received to player2
+	}
+
+	fmt.Println("Eval delta_i(0) for every id")
+
+	computedSecret := player2.RecomputeSecret(1, *protocol)
+
+	// recombination vector
+	var recombination_vector = player2.recombination_vector
+
+	fmt.Println("\n Recombination vector is: ")
+	for _, r := range recombination_vector {
+		fmt.Printf("%d ", r)
+	}
+	fmt.Println("\n")
+
+	fmt.Printf("Secret is: %d\n", computedSecret)
 
 }
 
