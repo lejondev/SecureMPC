@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	SecureMPC.SecureMPC()
+	SecureMPC.PlaySecureMPC()
 }

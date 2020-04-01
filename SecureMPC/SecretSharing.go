@@ -8,22 +8,26 @@ import (
 	"strconv"
 )
 
+// ProtocolData contains the configuration and current state of the protocol.
+// Its participant field is being worked on under execution.
 type ProtocolData struct {
-	base         int
-	n            int
-	t            int
-	participants []*Player
+	base         int       // base is the base of the finite field
+	n            int       // n is the number of participants
+	t            int       // t is the number of adversaries
+	participants []*Player // participants contains the participating players
 }
 
+// Player contains the information a player has and learns along the way
 type Player struct {
-	secret      int
-	id          int
-	knownShares map[int]map[int]int // The shares of this players secret will be in [id][i] for shares i = 1...n
-	// The known shares of another player pid will be in [pid][i] for shares i that this player knows
-	// It is a map, that maps player ID's to a map of known shares.
-	// The map maps to a map of known shares for a given pid
+	secret      int                 // secret is the secure info to be shared
+	id          int                 // id is the identifier of this player
+	knownShares map[int]map[int]int // knownShares is a 2D map, that maps player ID's (pid) to a map of known shares
+	// of a given player.
 	// map[PlayerID] -> map[shareID] -> share
-	// It is pretty much a matrix, just with no entries in stead of 0 entries.
+	// The shares of this players secret will be in [id][i] for shares i = 1..n
+	// The learned shares from other players, will be in [pid][i] for shares i which
+	// this player has learned.
+	// Non existent entries mean that the share is unknown (not learned yet)
 }
 
 func (p *ProtocolData) GetPlayer(id int) *Player {
@@ -37,6 +41,7 @@ func (p *ProtocolData) GetNumberOfParticipants() int {
 	return p.n
 }
 
+// MakeProtocolData creates a ProtocolData object
 func MakeProtocolData(base, n int) *ProtocolData {
 	participants := make([]*Player, n+1)
 	for i := 1; i <= n; i++ {
@@ -73,16 +78,18 @@ func (p *Player) CreateShares(data ProtocolData) {
 	p.knownShares[p.id] = shares
 }
 
+// DistributeSecretShares will send the shares of the secret of the player to all other corresponding participants
 func (p *Player) DistributeSecretShares(data *ProtocolData) {
 	for i := 1; i <= data.n; i++ {
 		p.SendShare(p.id, i, data.participants[i])
 	}
 }
 
+// SendShare will "send" a specified share of this player to another specified player
 func (p *Player) SendShare(idOfPlayer, idOfShare int, receiver *Player) {
 	senderKnown := p.knownShares[idOfPlayer]
-	// Should check that the sender knows share idOfShare
-	// Should probably check that it is currently unknown for the other player
+	// TODO: Should check that the sender knows share idOfShare
+	// TODO: Should probably check that it is currently unknown for the other player
 	receiver.knownShares[idOfPlayer][idOfShare] = senderKnown[idOfShare]
 }
 
@@ -94,7 +101,7 @@ func (p *Player) RecomputeSecret(id int, data ProtocolData) int {
 		// top/bottom = (0-j)/(i-j)
 		top := 1
 		bottom := 1
-		for j, _ := range p.knownShares[id] {
+		for j := range p.knownShares[id] {
 			if j != i {
 				top = top * -j
 				bottom = bottom * (i - j)
@@ -128,7 +135,7 @@ func makeShares(s int, data ProtocolData) map[int]int {
 	return shares
 }
 
-func SecureMPC() {
+func PlaySecureMPC() {
 	// finite field F_base
 	fmt.Println("Enter prime base for finite field: ")
 	var base int
