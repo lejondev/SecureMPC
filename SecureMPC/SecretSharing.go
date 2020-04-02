@@ -142,6 +142,10 @@ func makeShares(s int, data ProtocolData) map[int]int {
 }
 
 func PlaySecureMPC() {
+
+	// Phase 0 - Configuration
+	fmt.Println("PHASE 0 - Configuration\n")
+
 	// finite field F_base
 	fmt.Print("Enter prime base for finite field (base): ")
 	var base int
@@ -171,23 +175,26 @@ func PlaySecureMPC() {
 		log.Print("Input failed due to:  ", err)
 	}
 
-	fmt.Printf("\nOK! base=%d, n=%d, secret=%d\n", base, n, secret)
+	fmt.Printf("\nOK! base=%d, n=%d, secret=%d\n\n", base, n, secret)
+
+	// Phase 1 - Create and distribute shares
+	fmt.Println("PHASE 1 - Create and distribute shares\n")
 
 	// Create the protocol control object
 	protocol := MakeProtocolData(base, n)
 
-	// Create a player (us, ie we are player1) and assign the secret
-	player1 := protocol.GetPlayer(1)
-	player1.AssignSecret(secret)
+	// Create a player (us, ie we are player) and assign the secret
+	player := protocol.GetPlayer(1)
+	player.AssignSecret(secret)
 
 	// Create polynomial and then, compute shares of the secret
-	player1.CreateShares(*protocol)
+	player.CreateShares(*protocol)
 
 	// TODO: print used polynomial
-	//fmt.Println("OK! Polynomial is: h(x)= " + player1.GetPolynomial().toStr())
+	//fmt.Println("OK! Polynomial is: h(x)= " + player.GetPolynomial().toStr())
 
 	// Print shares
-	var shares = player1.GetShares()
+	var shares = player.GetShares()
 	fmt.Println("Shares h(x), for x=1.." + strconv.Itoa(n) + " are: ")
 	for i := 0; i < len(shares); i++ {
 		fmt.Printf("%d ", shares[i])
@@ -195,34 +202,44 @@ func PlaySecureMPC() {
 	fmt.Println("\n")
 
 	// send the shares securely to each other participant P_1 .. P_n respectively
-	player1.DistributeSecretShares(protocol)
-	fmt.Printf("Now send shares to players 1..%d\n----\n", n)
+	player.DistributeSecretShares(protocol)
+	fmt.Println("We send our shares to other players")
+
+	// Phase 2 - Work with shares
+	fmt.Println("PHASE 2 - Everybody works with shares ... \n---- \n\n", n)
+
+	// Phase 3 - Recomputing!
+	fmt.Println("PHASE 3 - Recomputing")
 
 	// Recomputing player
-	fmt.Print("Enter id of player that should recompute: ")
-	var idPlayer2 int
-	if _, err := fmt.Scan(&idPlayer2); err != nil {
+	fmt.Printf("Enter id of player that should recompute (pid=1..%n): ", n)
+	var idOtherPlayer int
+	if _, err := fmt.Scan(&idOtherPlayer); err != nil {
 		log.Print("Input failed due to:  ", err)
 	}
 
-	// Now player2 will recompute the secret
-	player2 := protocol.GetPlayer(idPlayer2) // Receiving player
+	// Now otherPlayer will recompute the secret
+	otherPlayer := protocol.GetPlayer(idOtherPlayer) // Receiving player
 
 	// We can tolerate t < n/2 corruptions
 	var t = protocol.GetTolerance()
 
-	// Send shares i=3..c+3 of secret of player1, from the respective players, to player2
-	for i := 3; i <= t+3; i++ {
-		sendingPlayer := protocol.GetPlayer(i)
-		sendingPlayer.SendShare(1, i, player2) // Sends the share they received to player2
+	// Send shares i=3..c+3 o secret of player, from the respective players, to otherPlayer
+	fmt.Printf("Other players send the secret share they got from us to pid=%d\n", idOtherPlayer)
+	for i := 1; i <= t+2; {
+		if !(i == 1 || i == idOtherPlayer) {
+			sendingPlayer := protocol.GetPlayer(i)
+			sendingPlayer.SendShare(1, i, otherPlayer) // Sends the share of i=3..7 received from player to otherPlayer
+		}
+		i++
 	}
 
-	fmt.Println("Eval delta_i(0) for every id")
+	fmt.Println("\nEval delta_i(0) for every id")
 
-	computedSecret := player2.RecomputeSecret(1, *protocol)
+	computedSecret := otherPlayer.RecomputeSecret(1, *protocol)
 
 	// recombination vector
-	var recombination_vector = player2.recombination_vector
+	var recombination_vector = otherPlayer.recombination_vector
 
 	fmt.Println("\n Recombination vector is: ")
 	for _, r := range recombination_vector {
