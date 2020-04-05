@@ -3,6 +3,7 @@ package SecureMPC
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"fmt"
 	"math/big"
 )
 
@@ -26,9 +27,9 @@ type ThresholdProtocolData struct {
 
 // Player contains the information a player has and learns along the way
 type ThresholdPlayer struct {
-	secretKey       *big.Int                    // secret is the secure info to be shared
-	id              int                         // id is the identifier of this player
-	knownSignatures map[string]map[int]([]byte) // This is a map from string messages to a map, that maps indices to signatures
+	secretKey       *big.Int                          // secret is the secure info to be shared
+	id              int                               // id is the identifier of this player
+	knownSignatures map[string]map[int]SignatureShare // This is a map from string messages to a map, that maps indices to signatures
 	data            *ThresholdProtocolData
 }
 
@@ -40,7 +41,7 @@ func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
 	v := GenerateRandomQuadratic(n)
 	verificationKeys := GenerateVerificationKeys(secrets, v, n)
 	participants := make([]*ThresholdPlayer, l+1)
-	emptymap := map[string]map[int][]byte{}
+	emptymap := map[string]map[int]SignatureShare{}
 
 	data := &ThresholdProtocolData{
 		l:                l,
@@ -62,26 +63,6 @@ func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
 	}
 	data.participants = participants
 	return data
-}
-
-func createRecombinationVector(data *ThresholdProtocolData, knownPlayers []int) map[int]*big.Int {
-	// Known players is an array of indices of the known players
-	recomb := make(map[int]*big.Int, len(knownPlayers))
-	// We only compute for the zeroth element, (i = 0 in the paper), as we do not care about the function value at any other point
-	for j := range knownPlayers {
-		top := 1
-		bottom := 1
-		for jprime := range knownPlayers {
-			if jprime != j {
-				top *= -jprime
-				bottom *= j - jprime
-			}
-		}
-		deltatop := new(big.Int).Mul(data.delta, big.NewInt(int64(top)))
-		lambda0j := new(big.Int).Div(deltatop, big.NewInt(int64(bottom)))
-		recomb[j] = lambda0j
-	}
-	return recomb
 }
 
 func (p *ThresholdPlayer) SignHashOfMsg(msg string) *SignatureShare {
@@ -149,4 +130,60 @@ func VerifyShare(msg string, signatureShare SignatureShare, data *ThresholdProto
 	xisquared := new(big.Int).Exp(xi, Two, data.n)
 	cprime := HashSixBigInts(data.v, xtilde, vi, xisquared, vprime, xprime)
 	return cprime.Cmp(c) == 0
+}
+
+func Verify(msg string, data *ThresholdProtocolData, signatureShares map[int]SignatureShare) bool {
+	digest := sha256.Sum256([]byte(msg))
+	x := new(big.Int).SetBytes(digest[:])
+	keys := make([]int, 0, len(signatureShares))
+	for k := range signatureShares {
+		keys = append(keys, k)
+	}
+	recombmap := createRecombinationVector(data, keys)
+	w := One
+	for k, v := range signatureShares {
+		twolambda := new(big.Int).Mul(Two, recombmap[k])
+		xipow := new(big.Int).Exp(twolambda, v.signature, data.n)
+		w = new(big.Int).Mul(w, xipow)
+	}
+	// Use euclidean algorithm here.
+
+	twodelta := new(big.Int).Mul(data.delta, Two) // Should this be done modulo??
+	fourdeltasquared := new(big.Int).Mul(twodelta, twodelta)
+	a := big.NewInt(0)
+	b := big.NewInt(0)
+	// This gcd should be using mod n?? surely?
+	// GCD sets a and b to the correct values we need
+	// These numbers are actually constant, we could consider throwing them in the data structure
+	gcd := new(big.Int).GCD(fourdeltasquared, data.e, a, b) // This is actually a constant that is know
+	if gcd.Cmp(One) != 0 {
+		fmt.Println("ERROR gcd not 1???") // Should not be able to happen but idk
+		return false
+	}
+
+	wa := new(big.Int).Exp(w, a, data.n)
+	xb := new(big.Int).Exp(x, b, data.n)
+	y := new(big.Int).Mul(wa, xb)
+	ye := new(big.Int).Exp(y, data.e, data.n)
+	return ye.Cmp(x) == 0 // At this point x and y^e should be equal
+}
+
+func createRecombinationVector(data *ThresholdProtocolData, knownPlayers []int) map[int]*big.Int {
+	// Known players is an array of indices of the known players
+	recomb := make(map[int]*big.Int, len(knownPlayers))
+	// We only compute for the zeroth element, (i = 0 in the paper), as we do not care about the function value at any other point
+	for j := range knownPlayers {
+		top := 1
+		bottom := 1
+		for jprime := range knownPlayers {
+			if jprime != j {
+				top *= -jprime
+				bottom *= j - jprime
+			}
+		}
+		deltatop := new(big.Int).Mul(data.delta, big.NewInt(int64(top)))
+		lambda0j := new(big.Int).Div(deltatop, big.NewInt(int64(bottom)))
+		recomb[j] = lambda0j
+	}
+	return recomb
 }
