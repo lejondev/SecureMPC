@@ -5,15 +5,17 @@ import (
 	"math/big"
 )
 
+var One = big.NewInt(1)
+var Two = big.NewInt(2)
+
 var PublicExponent = big.NewInt(65537)
 
 func GeneratePrimes(security int) (*big.Int, *big.Int) {
-	one := big.NewInt(1)
-	two := big.NewInt(2)
+
 	p1, _ := rand.Prime(rand.Reader, security)
 	q1, _ := rand.Prime(rand.Reader, security)
-	p := new(big.Int).Add(new(big.Int).Mul(p1, two), one)
-	q := new(big.Int).Add(new(big.Int).Mul(q1, two), one)
+	p := new(big.Int).Add(new(big.Int).Mul(p1, Two), One)
+	q := new(big.Int).Add(new(big.Int).Mul(q1, Two), One)
 	if p.ProbablyPrime(64) && q.ProbablyPrime(64) {
 		return new(big.Int).Mul(p1, q1), new(big.Int).Mul(p, q)
 	}
