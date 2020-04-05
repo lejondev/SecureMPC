@@ -124,3 +124,29 @@ func HashSixBigInts(v, x, vi, x2, vp, xp *big.Int) *big.Int {
 	digest := sha256.Sum256([]byte(toHash))
 	return new(big.Int).SetBytes(digest[:])
 }
+
+func VerifyShare(msg string, signatureShare SignatureShare, data *ThresholdProtocolData) bool {
+	digest := sha256.Sum256([]byte(msg))
+	x := new(big.Int).SetBytes(digest[:])
+	twodelta := new(big.Int).Mul(Two, data.delta)
+	fourdelta := new(big.Int).Mul(Two, twodelta)
+	xtilde := new(big.Int).Exp(x, fourdelta, data.n)
+	id := signatureShare.id
+	vi := data.verificationKeys[id]
+	xi := signatureShare.signature
+	c := signatureShare.c
+	z := signatureShare.z
+	vpowz := new(big.Int).Exp(data.v, z, data.n)
+	negc := new(big.Int).Neg(c)
+	vic := new(big.Int).Exp(vi, negc, data.n)
+	vprimeNoMod := new(big.Int).Mul(vic, vpowz)
+	vprime := new(big.Int).Mod(vprimeNoMod, data.n)
+	xtildez := new(big.Int).Exp(xtilde, z, data.n)
+	neg2c := new(big.Int).Mul(negc, Two)
+	xic := new(big.Int).Exp(xi, neg2c, data.n)
+	xprimeNoMod := new(big.Int).Mul(xic, xtildez)
+	xprime := new(big.Int).Mod(xprimeNoMod, data.n)
+	xisquared := new(big.Int).Exp(xi, Two, data.n)
+	cprime := HashSixBigInts(data.v, xtilde, vi, xisquared, vprime, xprime)
+	return cprime.Cmp(c) == 0
+}
