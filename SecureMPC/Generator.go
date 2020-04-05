@@ -14,7 +14,7 @@ func GeneratePrimes(security int) (*big.Int, *big.Int) {
 	q1, _ := rand.Prime(rand.Reader, security)
 	p := new(big.Int).Add(new(big.Int).Mul(p1, two), one)
 	q := new(big.Int).Add(new(big.Int).Mul(q1, two), one)
-	if p.ProbablyPrime(1) && q.ProbablyPrime(64) {
+	if p.ProbablyPrime(64) && q.ProbablyPrime(64) {
 		return new(big.Int).Mul(p1, q1), new(big.Int).Mul(p, q)
 	}
 	return GeneratePrimes(security)
@@ -26,13 +26,13 @@ func GenerateRandomQuadratic(n *big.Int) *big.Int {
 	return new(big.Int).Mul(v, v)
 }
 
-func GenerateRSAKey(security int) (*big.Int, *big.Int) {
+func GenerateRSAKey(security int) (*big.Int, *big.Int, *big.Int, *big.Int) {
 	n, m := GeneratePrimes(security)
 
 	// This mod inverse should not be able to fail, as m should be a product of two primes, none of which can be equal to e
 	secretKey := new(big.Int).ModInverse(PublicExponent, m)
 
-	return n, secretKey
+	return n, PublicExponent, secretKey, m
 }
 
 type BigPolynomial struct {
@@ -68,4 +68,12 @@ func GenerateSecretShares(poly *BigPolynomial, base *big.Int, l int) []*big.Int 
 		shares[i] = poly.eval(big.NewInt(int64(i)), base)
 	}
 	return shares
+}
+
+func GenerateVerificationKeys(secrets []*big.Int, v *big.Int, n *big.Int) []*big.Int {
+	verificationKeys := make([]*big.Int, len(secrets))
+	for i := 1; i < len(secrets); i++ {
+		verificationKeys[i] = new(big.Int).Exp(v, secrets[i], n)
+	}
+	return verificationKeys
 }
