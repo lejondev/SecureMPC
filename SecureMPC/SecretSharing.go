@@ -12,20 +12,20 @@ import (
 // Its participant field is being worked on under execution.
 type ProtocolData struct {
 	base         int       // base is the base of the finite field
-	n            int       // n is the number of participants
+	n            int       // N is the number of Participants
 	t            int       // t is the number of adversaries
-	participants []*Player // participants contains the participating players
+	participants []*Player // Participants contains the participating players
 }
 
 // Player contains the information a player has and learns along the way
 type Player struct {
 	secret               int // secret is the secure info to be shared
-	id                   int // id is the identifier of this player
+	id                   int // Id is the identifier of this player
 	recombination_vector []int
 	knownShares          map[int]map[int]int // knownShares is a 2D map, that maps player ID's (pid) to a map of known shares
 	// of a given player.
 	// map[PlayerID] -> map[shareID] -> share
-	// The shares of this players secret will be in [id][i] for shares i = 1..n
+	// The shares of this players secret will be in [Id][i] for shares i = 1..N
 	// The learned shares from other players, will be in [pid][i] for shares i which
 	// this player has learned.
 	// Non existent entries mean that the share is unknown (not learned yet)
@@ -79,7 +79,7 @@ func (p *Player) CreateShares(data ProtocolData) {
 	p.knownShares[p.id] = shares
 }
 
-// DistributeSecretShares will send the shares of the secret of the player to all other corresponding participants
+// DistributeSecretShares will send the shares of the secret of the player to all other corresponding Participants
 func (p *Player) DistributeSecretShares(data *ProtocolData) {
 	for i := 1; i <= data.n; i++ {
 		p.SendShare(p.id, i, data.participants[i])
@@ -153,16 +153,16 @@ func PlaySecureMPC() {
 		log.Print("Input failed due to:  ", err)
 	}
 
-	// n = number of participants
-	// Their IDs are 1..n for P_1 .. P_n respectively, so C={1,2..n}
+	// N = number of Participants
+	// Their IDs are 1..N for P_1 .. P_n respectively, so C={1,2..N}
 	var n int
-	fmt.Print("Enter number of participants (n): ")
+	fmt.Print("Enter number of Participants (N): ")
 	if _, err := fmt.Scan(&n); err != nil {
 		log.Print("Input failed due to:  ", err)
 	}
 	for !(0 < n && n < base) {
-		log.Printf("Sorry, n must be smaller than the base (n<base). You chose base=%d, n=%d. Try again.", base, n)
-		fmt.Print("Enter number of participants (n): ")
+		log.Printf("Sorry, N must be smaller than the base (N<base). You chose base=%d, N=%d. Try again.", base, n)
+		fmt.Print("Enter number of Participants (N): ")
 		if _, err := fmt.Scan(&n); err != nil {
 			log.Print("Input failed due to:  ", err)
 		}
@@ -175,7 +175,7 @@ func PlaySecureMPC() {
 		log.Print("Input failed due to:  ", err)
 	}
 
-	fmt.Printf("\nOK! base=%d, n=%d, secret=%d\n\n", base, n, secret)
+	fmt.Printf("\nOK! base=%d, N=%d, secret=%d\n\n", base, n, secret)
 
 	// Phase 1 - Create and distribute shares
 	fmt.Println("PHASE 1 - Create and distribute shares\n")
@@ -212,7 +212,7 @@ func PlaySecureMPC() {
 	fmt.Println("PHASE 3 - Recomputing")
 
 	// Recomputing player
-	fmt.Printf("Enter id of player that should recompute (pid=1..%n): ", n)
+	fmt.Printf("Enter Id of player that should recompute (pid=1..%N): ", n)
 	var idOtherPlayer int
 	if _, err := fmt.Scan(&idOtherPlayer); err != nil {
 		log.Print("Input failed due to:  ", err)
@@ -221,7 +221,7 @@ func PlaySecureMPC() {
 	// Now otherPlayer will recompute the secret
 	otherPlayer := protocol.GetPlayer(idOtherPlayer) // Receiving player
 
-	// We can tolerate t < n/2 corruptions
+	// We can tolerate t < N/2 corruptions
 	var t = protocol.GetTolerance()
 
 	// Send shares i=3..c+3 o secret of player, from the respective players, to otherPlayer
@@ -234,7 +234,7 @@ func PlaySecureMPC() {
 		i++
 	}
 
-	fmt.Println("\nEval delta_i(0) for every id")
+	fmt.Println("\nEval delta_i(0) for every Id")
 
 	computedSecret := otherPlayer.RecomputeSecret(1, *protocol)
 
@@ -274,7 +274,7 @@ func modInverse(a int, m int) int {
 
 /**
  * Simple polynomial of the form
- * const + a_1*x + a_2*x^2 + ... + a_n*x^n
+ * const + a_1*x + a_2*x^2 + ... + a_n*x^N
  */
 type Polynomial struct {
 	constant int
