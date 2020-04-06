@@ -7,7 +7,7 @@ import (
 )
 
 func TestPrimeGen(t *testing.T) {
-	n, m := SecureMPC.GeneratePrimes(128)
+	n, m := SecureMPC.GeneratePrimes(512)
 	fmt.Println(n)
 	fmt.Println(m)
 }

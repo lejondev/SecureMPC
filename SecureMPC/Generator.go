@@ -11,12 +11,11 @@ var Two = big.NewInt(2)
 var PublicExponent = big.NewInt(65537)
 
 func GeneratePrimes(security int) (*big.Int, *big.Int) {
-
-	p1, _ := rand.Prime(rand.Reader, security)
-	q1, _ := rand.Prime(rand.Reader, security)
+	p1, _ := rand.Prime(rand.Reader, security/2)
+	q1, _ := rand.Prime(rand.Reader, security/2)
 	p := new(big.Int).Add(new(big.Int).Mul(p1, Two), One)
 	q := new(big.Int).Add(new(big.Int).Mul(q1, Two), One)
-	if p.ProbablyPrime(64) && q.ProbablyPrime(64) {
+	if p.ProbablyPrime(8) && q.ProbablyPrime(8) {
 		return new(big.Int).Mul(p1, q1), new(big.Int).Mul(p, q)
 	}
 	return GeneratePrimes(security)
@@ -31,7 +30,7 @@ func GenerateRandomQuadratic(n *big.Int) *big.Int {
 func GenerateRSAKey(security int) (*big.Int, *big.Int, *big.Int, *big.Int) {
 	n, m := GeneratePrimes(security)
 
-	// This mod inverse should not be able to fail, as m should be a product of two primes, none of which can be equal to e
+	// This mod inverse should not be able to fail, as m should be a product of two primes, none of which can be equal to E
 	secretKey := new(big.Int).ModInverse(PublicExponent, m)
 
 	return n, PublicExponent, secretKey, m
