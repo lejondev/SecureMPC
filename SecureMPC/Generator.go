@@ -3,6 +3,7 @@ package SecureMPC
 import (
 	"crypto/rand"
 	"math/big"
+	"strconv"
 )
 
 var One = big.NewInt(1)
@@ -14,12 +15,12 @@ var e = big.NewInt(65537)
 // GeneratePrimes will generate two random primes n=p*q and m=p'*q'
 // security is the length of the primes p,q used
 func GeneratePrimes(security int) (*big.Int, *big.Int) {
-	p1, _ := rand.Prime(rand.Reader, security/2)
-	q1, _ := rand.Prime(rand.Reader, security/2)
-	p := new(big.Int).Add(new(big.Int).Mul(p1, Two), One)
-	q := new(big.Int).Add(new(big.Int).Mul(q1, Two), One)
+	pprime, _ := rand.Prime(rand.Reader, security-1)
+	qprime, _ := rand.Prime(rand.Reader, security-1)
+	p := new(big.Int).Add(new(big.Int).Mul(pprime, Two), One)
+	q := new(big.Int).Add(new(big.Int).Mul(qprime, Two), One)
 	if p.ProbablyPrime(8) && q.ProbablyPrime(8) {
-		return new(big.Int).Mul(p1, q1), new(big.Int).Mul(p, q)
+		return new(big.Int).Mul(p, q), new(big.Int).Mul(pprime, qprime)
 	}
 	return GeneratePrimes(security)
 }
@@ -60,11 +61,20 @@ func (p *BigPolynomial) eval(x *big.Int, base *big.Int) *big.Int {
 	return new(big.Int).Mod(constant, base)
 }
 
+func (p *BigPolynomial) String() string {
+	str := p.constant.String()
+	for i := 0; i < len(p.coefs); i++ {
+		var exp = i + 1
+		str = str + " + " + p.coefs[i].String() + "x^" + strconv.Itoa(exp)
+	}
+	return str
+}
+
 // GenerateRandomBigPolynomial creates a random polynomial, such that f(0)=d, where
 // d is the secret to be shared (shamir secret sharing)
 func GenerateRandomBigPolynomial(zero *big.Int, base *big.Int, degree int) *BigPolynomial {
-	coefs := make([]*big.Int, degree-1)
-	for i := 0; i < degree-1; i++ {
+	coefs := make([]*big.Int, degree)
+	for i := 0; i < degree; i++ {
 		coefs[i], _ = rand.Int(rand.Reader, base)
 	}
 	return &BigPolynomial{

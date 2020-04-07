@@ -23,6 +23,8 @@ type ThresholdProtocolData struct {
 	V                *big.Int
 	Participants     []*ThresholdPlayer // Participants contains the participating players
 	VerificationKeys []*big.Int
+	secrets          []*big.Int
+	m                *big.Int
 }
 
 // Player contains the information a player has and learns along the way
@@ -35,13 +37,15 @@ type ThresholdPlayer struct {
 
 func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
 	// N is amount of players, K amount of signatures needed
-	n, e, d, m := GenerateRSAKey(512)
+	n, e, d, m := GenerateRSAKey(257) // Maybe it should be higher but it takes an eternity
 	poly := GenerateRandomBigPolynomial(d, m, k-1)
+	fmt.Println(poly)
 	secrets := GenerateSecretShares(poly, m, l)
 	v := GenerateRandomQuadratic(n)
 	verificationKeys := GenerateVerificationKeys(secrets, v, n)
 	participants := make([]*ThresholdPlayer, l+1)
 	emptymap := map[string]map[int]*SignatureShare{}
+	fmt.Println("Actual secret", d)
 
 	data := &ThresholdProtocolData{
 		L:                l,
@@ -52,6 +56,8 @@ func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
 		V:                v,
 		Participants:     nil,
 		VerificationKeys: verificationKeys,
+		secrets:          secrets,
+		m:                m,
 	}
 	for i := 1; i <= l; i++ {
 		participants[i] = &ThresholdPlayer{
@@ -150,87 +156,66 @@ func (p *ThresholdPlayer) AddShare(msg string, signatureShare *SignatureShare) {
 func Verify(msg string, data *ThresholdProtocolData, signatureShares map[int]*SignatureShare) bool {
 	digest := sha256.Sum256([]byte(msg))
 	x := new(big.Int).SetBytes(digest[:])
-	keys := make([]int, 0, len(signatureShares))
-	for k := range signatureShares {
-		keys = append(keys, k)
-	}
-	if len(keys) < data.K {
+	if len(signatureShares) < data.K {
 		fmt.Println("Too few known signatures")
 		return false
 	}
-	recombmap := createRecombinationVector(data, keys)
+	smallmap := make(map[int]*SignatureShare, 4)
+	for i := 1; i <= 3; i++ {
+		smallmap[i] = signatureShares[i]
+	}
+	fmt.Println(smallmap)
 	w := big.NewInt(1)
-	fmt.Println(recombmap)
-	fmt.Println("SHARE map")
-	fmt.Println(signatureShares)
-	for k, v := range signatureShares {
-		if k != v.id {
+	for i, v := range signatureShares {
+		// delta_i(0), because we evaluate h(x) at x=0
+		// top/bottom = (0-j)/(i-j)
+		if i != v.id {
 			fmt.Println("k and id does not match")
 		}
-		twolambda := new(big.Int).Mul(Two, recombmap[k])
-		xipow := new(big.Int).Exp(v.signature, twolambda, data.N)
+		top := 1
+		bottom := 1
+		for j := range signatureShares {
+			if j != i {
+				top = top * -j
+				bottom = bottom * (i - j)
+			}
+		}
+		topB := big.NewInt(int64(top))
+		bottomB := big.NewInt(int64(bottom))
+		topBDelta := new(big.Int).Mul(topB, data.Delta)
+		lambda := new(big.Int).Div(topBDelta, bottomB)
+		xipow := new(big.Int).Exp(v.signature, lambda, data.N)
 		w.Mul(w, xipow)
+		w.Mod(w, data.N) // might not be needed
 	}
 	// Use euclidean algorithm here.
 	twodelta := new(big.Int).Mul(data.Delta, Two) // Should this be done modulo??
 	fourdeltasquared := new(big.Int).Mul(twodelta, twodelta)
-	a := big.NewInt(0)
-	b := big.NewInt(0)
-	// This gcd should be using mod N?? surely?
-	// GCD sets a and b to the correct values we need
-	// These numbers are actually constant, we could consider throwing them in the Data structure
-	gcd := new(big.Int).GCD(a, b, fourdeltasquared, data.E) // This is actually a constant that is known
+	w.Exp(w, Two, data.N) // To do essentially mod m
 	we := new(big.Int).Exp(w, e, data.N)
 	xeprime := new(big.Int).Exp(x, fourdeltasquared, data.N)
 	if we.Cmp(xeprime) != 0 {
-		fmt.Println("Something is wrong with w? or x?")
+		fmt.Println("Something is wrong with w or x")
+		fmt.Println("w:  ", w)
+		fmt.Println("w^e ", we)
+		fmt.Println("x   ", x)
+		fmt.Println("x^e'", xeprime)
 		return false
 	}
+	// GCD sets a and b to the correct values we need
+	// These numbers are actually constant, we could consider throwing them in the Data structure
+	a := big.NewInt(0)
+	b := big.NewInt(0)
+	gcd := new(big.Int).GCD(a, b, fourdeltasquared, data.E) // This is actually a constant that is known
 	if gcd.Cmp(One) != 0 {
 		fmt.Println("ERROR gcd not 1") // Should not be able to happen but idk
 		return false
 	}
-	am := new(big.Int).Mod(a, data.N)
-	bm := new(big.Int).Mod(b, data.N)
-	fmt.Println(fourdeltasquared)
-	fmt.Println("GCD now")
-	fmt.Println(gcd)
-	fmt.Println(a)
-	fmt.Println(b)
 	wa := new(big.Int).Exp(w, a, data.N)
 	xb := new(big.Int).Exp(x, b, data.N)
-	fmt.Println("Test")
-	fmt.Println(new(big.Int).Exp(w, a, data.N))
-	fmt.Println(new(big.Int).Exp(w, am, data.N))
-	// Why the fuck is b and bm not equal?
-	fmt.Println(new(big.Int).Exp(x, b, data.N))
-	fmt.Println(new(big.Int).Exp(x, bm, data.N))
 	y := new(big.Int).Mul(wa, xb)
 	ye := new(big.Int).Exp(y, data.E, data.N)
-	fmt.Println("Final comp")
-	fmt.Println(ye)
-	fmt.Println(x)
 	return ye.Cmp(x) == 0 // At this point x and y^E should be equal
-}
-
-func createRecombinationVector(data *ThresholdProtocolData, knownPlayers []int) map[int]*big.Int {
-	// Known players is an array of indices of the known players
-	recomb := make(map[int]*big.Int, len(knownPlayers))
-	// We only compute for the zeroth element, (i = 0 in the paper), as we do not care about the function value at any other point
-	for _, j := range knownPlayers {
-		top := 1
-		bottom := 1
-		for _, jprime := range knownPlayers {
-			if jprime != j {
-				top *= -jprime
-				bottom *= j - jprime
-			}
-		}
-		deltatop := new(big.Int).Mul(data.Delta, big.NewInt(int64(top)))
-		lambda0j := new(big.Int).Div(deltatop, big.NewInt(int64(bottom)))
-		recomb[j] = lambda0j
-	}
-	return recomb
 }
 
 func SendSignatureShare(msg string, signatureShare *SignatureShare, receiverID int, data *ThresholdProtocolData) {
