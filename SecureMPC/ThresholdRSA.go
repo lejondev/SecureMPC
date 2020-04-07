@@ -23,8 +23,6 @@ type ThresholdProtocolData struct {
 	V                *big.Int
 	Participants     []*ThresholdPlayer // Participants contains the participating players
 	VerificationKeys []*big.Int
-	secrets          []*big.Int
-	m                *big.Int
 }
 
 // Player contains the information a player has and learns along the way
@@ -39,14 +37,11 @@ func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
 	// N is amount of players, K amount of signatures needed
 	n, e, d, m := GenerateRSAKey(257) // Maybe it should be higher but it takes an eternity
 	poly := GenerateRandomBigPolynomial(d, m, k-1)
-	fmt.Println(poly)
 	secrets := GenerateSecretShares(poly, m, l)
 	v := GenerateRandomQuadratic(n)
 	verificationKeys := GenerateVerificationKeys(secrets, v, n)
 	participants := make([]*ThresholdPlayer, l+1)
 	emptymap := map[string]map[int]*SignatureShare{}
-	fmt.Println("Actual secret", d)
-
 	data := &ThresholdProtocolData{
 		L:                l,
 		K:                k,
@@ -56,8 +51,6 @@ func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
 		V:                v,
 		Participants:     nil,
 		VerificationKeys: verificationKeys,
-		secrets:          secrets,
-		m:                m,
 	}
 	for i := 1; i <= l; i++ {
 		participants[i] = &ThresholdPlayer{
@@ -78,7 +71,6 @@ func (p *ThresholdPlayer) SignHashOfMsg(msg string) *SignatureShare {
 	twodelta := new(big.Int).Mul(Two, data.Delta)
 	exponent := new(big.Int).Mul(twodelta, p.secretKey)
 	xi := new(big.Int).Exp(x, exponent, data.N)
-
 	// Now we need to construct our proof
 	// 512 is bitlength of N, 256 is length of hash output. Division by 8 is to get it in bytes
 	securityparam := (512+2*256)/8 + 1
@@ -160,11 +152,6 @@ func Verify(msg string, data *ThresholdProtocolData, signatureShares map[int]*Si
 		fmt.Println("Too few known signatures")
 		return false
 	}
-	smallmap := make(map[int]*SignatureShare, 4)
-	for i := 1; i <= 3; i++ {
-		smallmap[i] = signatureShares[i]
-	}
-	fmt.Println(smallmap)
 	w := big.NewInt(1)
 	for i, v := range signatureShares {
 		// delta_i(0), because we evaluate h(x) at x=0
@@ -188,10 +175,9 @@ func Verify(msg string, data *ThresholdProtocolData, signatureShares map[int]*Si
 		w.Mul(w, xipow)
 		w.Mod(w, data.N) // might not be needed
 	}
-	// Use euclidean algorithm here.
-	twodelta := new(big.Int).Mul(data.Delta, Two) // Should this be done modulo??
+	twodelta := new(big.Int).Mul(data.Delta, Two)
 	fourdeltasquared := new(big.Int).Mul(twodelta, twodelta)
-	w.Exp(w, Two, data.N) // To do essentially mod m
+	w.Exp(w, Two, data.N) // To do essentially mod m, might not strictly be necessary as long as everyone behaves properly
 	we := new(big.Int).Exp(w, e, data.N)
 	xeprime := new(big.Int).Exp(x, fourdeltasquared, data.N)
 	if we.Cmp(xeprime) != 0 {
@@ -202,7 +188,7 @@ func Verify(msg string, data *ThresholdProtocolData, signatureShares map[int]*Si
 		fmt.Println("x^e'", xeprime)
 		return false
 	}
-	// GCD sets a and b to the correct values we need
+	// GCD sets a and b to the correct values we need such that e'a + eb = 1
 	// These numbers are actually constant, we could consider throwing them in the Data structure
 	a := big.NewInt(0)
 	b := big.NewInt(0)
