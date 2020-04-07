@@ -52,10 +52,10 @@ type BigPolynomial struct {
 func (p *BigPolynomial) eval(x *big.Int, base *big.Int) *big.Int {
 	constant := p.constant
 	for i := 0; i < len(p.coefs); i++ {
-		var exp = big.NewInt(int64(i + 1))
+		exp := big.NewInt(int64(i + 1))
 		xpowi := new(big.Int).Exp(x, exp, base)
 		mula := (new(big.Int)).Mul(xpowi, p.coefs[i])
-		constant.Add(constant, mula)
+		constant = new(big.Int).Add(constant, mula)
 	}
 	return new(big.Int).Mod(constant, base)
 }
@@ -63,9 +63,9 @@ func (p *BigPolynomial) eval(x *big.Int, base *big.Int) *big.Int {
 // GenerateRandomBigPolynomial creates a random polynomial, such that f(0)=d, where
 // d is the secret to be shared (shamir secret sharing)
 func GenerateRandomBigPolynomial(zero *big.Int, base *big.Int, degree int) *BigPolynomial {
-	coefs := make([]*big.Int, degree)
-	for i := 0; i < degree; i++ {
-		coefs[i], _ = rand.Int(rand.Reader, base) // Should probably be secure random
+	coefs := make([]*big.Int, degree-1)
+	for i := 0; i < degree-1; i++ {
+		coefs[i], _ = rand.Int(rand.Reader, base)
 	}
 	return &BigPolynomial{
 		constant: zero,

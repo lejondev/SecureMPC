@@ -141,7 +141,7 @@ func (p *ThresholdPlayer) AddShare(msg string, signatureShare *SignatureShare) {
 		if len(p.KnownSignatures[msg]) == 0 {
 			p.KnownSignatures[msg] = map[int]*SignatureShare{}
 		}
-		p.KnownSignatures[msg][p.Id] = signatureShare
+		p.KnownSignatures[msg][signatureShare.id] = signatureShare
 		return
 	}
 	fmt.Println("Verification of share failed")
@@ -158,23 +158,20 @@ func Verify(msg string, data *ThresholdProtocolData, signatureShares map[int]*Si
 		fmt.Println("Too few known signatures")
 		return false
 	}
-	fmt.Println("keys")
-	fmt.Println(len(keys))
-	keys = keys[:data.K]
-	fmt.Println(len(keys))
 	recombmap := createRecombinationVector(data, keys)
-	w := One
+	w := big.NewInt(1)
 	fmt.Println(recombmap)
 	fmt.Println("SHARE map")
 	fmt.Println(signatureShares)
-	for _, k := range keys {
-		v := signatureShares[k]
+	for k, v := range signatureShares {
+		if k != v.id {
+			fmt.Println("k and id does not match")
+		}
 		twolambda := new(big.Int).Mul(Two, recombmap[k])
 		xipow := new(big.Int).Exp(v.signature, twolambda, data.N)
-		w = new(big.Int).Mul(w, xipow)
+		w.Mul(w, xipow)
 	}
 	// Use euclidean algorithm here.
-
 	twodelta := new(big.Int).Mul(data.Delta, Two) // Should this be done modulo??
 	fourdeltasquared := new(big.Int).Mul(twodelta, twodelta)
 	a := big.NewInt(0)
@@ -183,28 +180,31 @@ func Verify(msg string, data *ThresholdProtocolData, signatureShares map[int]*Si
 	// GCD sets a and b to the correct values we need
 	// These numbers are actually constant, we could consider throwing them in the Data structure
 	gcd := new(big.Int).GCD(a, b, fourdeltasquared, data.E) // This is actually a constant that is known
-	if gcd.Cmp(One) != 0 {
-		fmt.Println(data.Delta)
-		fmt.Println(twodelta)
-		fmt.Println(fourdeltasquared)
-		fmt.Println(data.E)
-		fmt.Println("GCD now")
-		fmt.Println(gcd)
-		fmt.Println(a)
-		fmt.Println(b)
-		fmt.Println("ERROR gcd not 1???") // Should not be able to happen but idk
+	we := new(big.Int).Exp(w, e, data.N)
+	xeprime := new(big.Int).Exp(x, fourdeltasquared, data.N)
+	if we.Cmp(xeprime) != 0 {
+		fmt.Println("Something is wrong with w? or x?")
 		return false
 	}
-	a = new(big.Int).Mod(a, data.N)
-	b = new(big.Int).Mod(b, data.N)
+	if gcd.Cmp(One) != 0 {
+		fmt.Println("ERROR gcd not 1") // Should not be able to happen but idk
+		return false
+	}
+	am := new(big.Int).Mod(a, data.N)
+	bm := new(big.Int).Mod(b, data.N)
 	fmt.Println(fourdeltasquared)
 	fmt.Println("GCD now")
 	fmt.Println(gcd)
 	fmt.Println(a)
 	fmt.Println(b)
-
 	wa := new(big.Int).Exp(w, a, data.N)
 	xb := new(big.Int).Exp(x, b, data.N)
+	fmt.Println("Test")
+	fmt.Println(new(big.Int).Exp(w, a, data.N))
+	fmt.Println(new(big.Int).Exp(w, am, data.N))
+	// Why the fuck is b and bm not equal?
+	fmt.Println(new(big.Int).Exp(x, b, data.N))
+	fmt.Println(new(big.Int).Exp(x, bm, data.N))
 	y := new(big.Int).Mul(wa, xb)
 	ye := new(big.Int).Exp(y, data.E, data.N)
 	fmt.Println("Final comp")
