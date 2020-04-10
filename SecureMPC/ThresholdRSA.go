@@ -145,20 +145,17 @@ func (p *ThresholdPlayer) AddShare(msg string, signatureShare *SignatureShare) {
 	fmt.Println("Verification of share failed")
 }
 
-func Verify(msg string, data *ThresholdProtocolData, signatureShares map[int]*SignatureShare) bool {
+func CreateSignature(msg string, data *ThresholdProtocolData, signatureShares map[int]*SignatureShare) (*big.Int, bool) {
 	digest := sha256.Sum256([]byte(msg))
 	x := new(big.Int).SetBytes(digest[:])
 	if len(signatureShares) < data.K {
-		fmt.Println("Too few known signatures")
-		return false
+		fmt.Println("Too few known signature shares")
+		return big.NewInt(0), false
 	}
 	w := big.NewInt(1)
 	for i, v := range signatureShares {
 		// delta_i(0), because we evaluate h(x) at x=0
 		// top/bottom = (0-j)/(i-j)
-		if i != v.id {
-			fmt.Println("k and id does not match")
-		}
 		top := 1
 		bottom := 1
 		for j := range signatureShares {
@@ -175,33 +172,26 @@ func Verify(msg string, data *ThresholdProtocolData, signatureShares map[int]*Si
 		w.Mul(w, xipow)
 		w.Mod(w, data.N) // might not be needed
 	}
+	w.Exp(w, Two, data.N) // To do essentially mod m, might not strictly be necessary as long as everyone behaves properly
 	twodelta := new(big.Int).Mul(data.Delta, Two)
 	fourdeltasquared := new(big.Int).Mul(twodelta, twodelta)
-	w.Exp(w, Two, data.N) // To do essentially mod m, might not strictly be necessary as long as everyone behaves properly
-	we := new(big.Int).Exp(w, e, data.N)
-	xeprime := new(big.Int).Exp(x, fourdeltasquared, data.N)
-	if we.Cmp(xeprime) != 0 {
-		fmt.Println("Something is wrong with w or x")
-		fmt.Println("w:  ", w)
-		fmt.Println("w^e ", we)
-		fmt.Println("x   ", x)
-		fmt.Println("x^e'", xeprime)
-		return false
-	}
 	// GCD sets a and b to the correct values we need such that e'a + eb = 1
 	// These numbers are actually constant, we could consider throwing them in the Data structure
 	a := big.NewInt(0)
 	b := big.NewInt(0)
-	gcd := new(big.Int).GCD(a, b, fourdeltasquared, data.E) // This is actually a constant that is known
-	if gcd.Cmp(One) != 0 {
-		fmt.Println("ERROR gcd not 1") // Should not be able to happen but idk
-		return false
-	}
+	_ = new(big.Int).GCD(a, b, fourdeltasquared, data.E) // This is actually a constant that is known
 	wa := new(big.Int).Exp(w, a, data.N)
 	xb := new(big.Int).Exp(x, b, data.N)
 	y := new(big.Int).Mul(wa, xb)
 	ye := new(big.Int).Exp(y, data.E, data.N)
-	return ye.Cmp(x) == 0 // At this point x and y^E should be equal
+	return y, ye.Cmp(x) == 0 // At this point x and y^E should be equal
+}
+
+func VerifySignature(msg string, y *big.Int, data *ThresholdProtocolData) bool {
+	digest := sha256.Sum256([]byte(msg))
+	x := new(big.Int).SetBytes(digest[:])
+	ye := new(big.Int).Exp(y, data.E, data.N)
+	return ye.Cmp(x) == 0
 }
 
 func SendSignatureShare(msg string, signatureShare *SignatureShare, receiverID int, data *ThresholdProtocolData) {

@@ -13,7 +13,11 @@ func TestThresholdProtocol(t *testing.T) {
 	SecureMPC.FullSignAndDistribute(message, data)
 	fmt.Println("Signing completed created")
 	sigmap := data.Participants[1].KnownSignatures[message]
-	if SecureMPC.Verify(message, data, sigmap) {
+	sig, valid := SecureMPC.CreateSignature(message, data, sigmap)
+	if !valid {
+		fmt.Println("Error")
+	}
+	if SecureMPC.VerifySignature(message, sig, data) {
 		fmt.Println("Success!")
 	} else {
 		fmt.Println("Failure!")

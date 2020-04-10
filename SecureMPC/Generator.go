@@ -26,8 +26,7 @@ func GeneratePrimes(security int) (*big.Int, *big.Int) {
 }
 
 func GenerateRandomQuadratic(n *big.Int) *big.Int {
-	sqrtn := new(big.Int).Sqrt(n)
-	v, _ := rand.Int(rand.Reader, sqrtn)
+	v, _ := rand.Int(rand.Reader, n)
 	return new(big.Int).Mul(v, v)
 }
 
@@ -38,10 +37,8 @@ func GenerateRandomQuadratic(n *big.Int) *big.Int {
 // m is the RSA message to be signed / encrypted
 func GenerateRSAKey(security int) (*big.Int, *big.Int, *big.Int, *big.Int) {
 	n, m := GeneratePrimes(security)
-
 	// This mod inverse should not be able to fail, as m should be a product of two primes, none of which can be equal to e
 	d := new(big.Int).ModInverse(e, m)
-
 	return n, e, d, m
 }
 
