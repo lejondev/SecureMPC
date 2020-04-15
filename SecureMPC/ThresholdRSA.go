@@ -7,6 +7,14 @@ import (
 	"math/big"
 )
 
+// "ThresholdRSA" is a "k out of l threshold signature scheme" and about using shamir secret sharing scheme as in
+// "SecureMPC" combined with RSA signing algorithm to obtain a protocol which only allows signing a message/data/info
+// with a minimum (threshold) of k authentic players. It is non-forgeable for less than k (statically and
+// initially chosen) corrupted players.
+//
+// This works by dividing the RSA private/signing key into secret (key-)shares which are given to authentic players
+// Verification keys are used to validate secret key shares
+
 type SignatureShare struct {
 	signature *big.Int
 	z         *big.Int
@@ -27,19 +35,20 @@ type ThresholdProtocolData struct {
 
 // Player contains the information a player has and learns along the way
 type ThresholdPlayer struct {
-	secretKey       *big.Int                           // secret is the secure info to be shared
+	secretKeyShare  *big.Int                           // secretKeyShare is the secure info to be shared
 	Id              int                                // Id is the identifier of this player
 	KnownSignatures map[string]map[int]*SignatureShare // This is a map from string messages to a map, that maps indices to signatures
 	Data            *ThresholdProtocolData
 }
 
+// ThresholdProtocolSetup will initialise settings and setup data structures
+// l is amount of players, k is amount of signatures needed
 func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
-	// N is amount of players, K amount of signatures needed
 	n, e, d, m := GenerateRSAKey(257) // Maybe it should be higher but it takes an eternity
 	poly := GenerateRandomBigPolynomial(d, m, k-1)
-	secrets := GenerateSecretShares(poly, m, l)
+	secretKeyShares := GenerateSecretShares(poly, m, l)
 	v := GenerateRandomQuadratic(n)
-	verificationKeys := GenerateVerificationKeys(secrets, v, n)
+	verificationKeys := GenerateVerificationKeys(secretKeyShares, v, n)
 	participants := make([]*ThresholdPlayer, l+1)
 	emptymap := map[string]map[int]*SignatureShare{}
 	data := &ThresholdProtocolData{
@@ -47,14 +56,14 @@ func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
 		K:                k,
 		N:                n,
 		E:                e,
-		Delta:            new(big.Int).MulRange(1, int64(l)), // computes factorial of L
+		Delta:            new(big.Int).MulRange(1, int64(l)), // computes factorial of l
 		V:                v,
 		Participants:     nil,
 		VerificationKeys: verificationKeys,
 	}
 	for i := 1; i <= l; i++ {
 		participants[i] = &ThresholdPlayer{
-			secretKey:       secrets[i],
+			secretKeyShare:  secretKeyShares[i],
 			Id:              i,
 			KnownSignatures: emptymap,
 			Data:            data,
@@ -64,12 +73,14 @@ func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
 	return data
 }
 
+// SignHashOfMsg will sign the hash of the message msg, which is the signature share of this player for given message.
+// msg is the message to be signed
 func (p *ThresholdPlayer) SignHashOfMsg(msg string) *SignatureShare {
 	data := p.Data
 	digest := sha256.Sum256([]byte(msg))
 	x := new(big.Int).SetBytes(digest[:])
 	twodelta := new(big.Int).Mul(Two, data.Delta)
-	exponent := new(big.Int).Mul(twodelta, p.secretKey)
+	exponent := new(big.Int).Mul(twodelta, p.secretKeyShare)
 	xi := new(big.Int).Exp(x, exponent, data.N)
 	// Now we need to construct our proof
 	// 512 is bitlength of N, 256 is length of hash output. Division by 8 is to get it in bytes
@@ -87,7 +98,7 @@ func (p *ThresholdPlayer) SignHashOfMsg(msg string) *SignatureShare {
 	vprime := new(big.Int).Exp(data.V, r, data.N)
 	xisquared := new(big.Int).Exp(xi, Two, data.N)
 	c := HashSixBigInts(data.V, xtilde, vi, xisquared, vprime, xprime)
-	sic := new(big.Int).Mul(p.secretKey, c)
+	sic := new(big.Int).Mul(p.secretKeyShare, c)
 	z := new(big.Int).Add(sic, r)
 	signatureShare := &SignatureShare{
 		signature: xi,
@@ -145,6 +156,7 @@ func (p *ThresholdPlayer) AddShare(msg string, signatureShare *SignatureShare) {
 	fmt.Println("Verification of share failed")
 }
 
+// CreateSignature will create the signature for the message from k participants signature shares
 func CreateSignature(msg string, data *ThresholdProtocolData, signatureShares map[int]*SignatureShare) (*big.Int, bool) {
 	digest := sha256.Sum256([]byte(msg))
 	x := new(big.Int).SetBytes(digest[:])
@@ -194,6 +206,7 @@ func VerifySignature(msg string, y *big.Int, data *ThresholdProtocolData) bool {
 	return ye.Cmp(x) == 0
 }
 
+// Sends the signature share to player
 func SendSignatureShare(msg string, signatureShare *SignatureShare, receiverID int, data *ThresholdProtocolData) {
 	data.Participants[receiverID].OnReceiveSignatureShare(msg, signatureShare)
 }
@@ -202,12 +215,17 @@ func (p *ThresholdPlayer) OnReceiveSignatureShare(msg string, signatureShare *Si
 	p.AddShare(msg, signatureShare)
 }
 
+// DistributeSignatureShare sends a signature share of message to all players
+// msg is the message that was signed
+// signatureShare is the part of the signature to be sent
 func DistributeSignatureShare(msg string, signatureShare *SignatureShare, data *ThresholdProtocolData) {
 	for i := 1; i <= data.L; i++ {
 		SendSignatureShare(msg, signatureShare, i, data)
 	}
 }
 
+// RequestSignatures will request all players 1..l to sign the message msg
+// msg is the message to be signed
 func RequestSignatures(msg string, data *ThresholdProtocolData) []*SignatureShare {
 	signatures := make([]*SignatureShare, data.L)
 	for i := 1; i <= data.L; i++ {
@@ -216,6 +234,7 @@ func RequestSignatures(msg string, data *ThresholdProtocolData) []*SignatureShar
 	return signatures
 }
 
+// FullSignAndDistribute will request signatures and distribute them
 func FullSignAndDistribute(msg string, data *ThresholdProtocolData) {
 	signatures := RequestSignatures(msg, data)
 	fmt.Println("Signatures made")

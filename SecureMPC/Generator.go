@@ -14,6 +14,7 @@ var e = big.NewInt(65537)
 
 // GeneratePrimes will generate two random primes n=p*q and m=p'*q'
 // security is the length of the primes p,q used
+// brute force
 func GeneratePrimes(security int) (*big.Int, *big.Int) {
 	pprime, _ := rand.Prime(rand.Reader, security-1)
 	qprime, _ := rand.Prime(rand.Reader, security-1)
@@ -25,6 +26,7 @@ func GeneratePrimes(security int) (*big.Int, *big.Int) {
 	return GeneratePrimes(security)
 }
 
+// GenerateRandomQuadratic will create a number v^2, where 0<v<n is uniformly random
 func GenerateRandomQuadratic(n *big.Int) *big.Int {
 	v, _ := rand.Int(rand.Reader, n)
 	return new(big.Int).Mul(v, v)
@@ -34,7 +36,7 @@ func GenerateRandomQuadratic(n *big.Int) *big.Int {
 // n is the RSA modulus
 // e is the public exponent
 // d is the private exponent
-// m is the RSA message to be signed / encrypted
+// m is the RSA message and the finite field base
 func GenerateRSAKey(security int) (*big.Int, *big.Int, *big.Int, *big.Int) {
 	n, m := GeneratePrimes(security)
 	// This mod inverse should not be able to fail, as m should be a product of two primes, none of which can be equal to e
@@ -67,24 +69,29 @@ func (p *BigPolynomial) String() string {
 	return str
 }
 
-// GenerateRandomBigPolynomial creates a random polynomial, such that f(0)=d, where
-// d is the secret to be shared (shamir secret sharing)
-func GenerateRandomBigPolynomial(zero *big.Int, base *big.Int, degree int) *BigPolynomial {
+// GenerateRandomBigPolynomial creates a random polynomial, such that
+//	f(0)=eval_zero
+//	s_i = f(i) mod field_base
+// where
+// eval_zero is the secret to be shared,
+// field_base is the modulo base and
+// s_i the shares to be distributed
+func GenerateRandomBigPolynomial(eval_zero *big.Int, field_base *big.Int, degree int) *BigPolynomial {
 	coefs := make([]*big.Int, degree)
 	for i := 0; i < degree; i++ {
-		coefs[i], _ = rand.Int(rand.Reader, base)
+		coefs[i], _ = rand.Int(rand.Reader, field_base)
 	}
 	return &BigPolynomial{
-		constant: zero,
+		constant: eval_zero,
 		coefs:    coefs,
 	}
 }
 
-// GenerateSecretShares will use a polynomial to generate secret key shares
-func GenerateSecretShares(poly *BigPolynomial, base *big.Int, l int) []*big.Int {
+// GenerateSecretShares will use a polynomial to generate secret key shares for l participants
+func GenerateSecretShares(poly *BigPolynomial, field_base *big.Int, l int) []*big.Int {
 	shares := make([]*big.Int, l+1)
 	for i := 1; i <= l; i++ {
-		shares[i] = poly.eval(big.NewInt(int64(i)), base)
+		shares[i] = poly.eval(big.NewInt(int64(i)), field_base)
 	}
 	return shares
 }
