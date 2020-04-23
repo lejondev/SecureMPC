@@ -16,12 +16,27 @@ var e = big.NewInt(65537)
 // security is the length of the primes p,q used
 // brute force
 func GeneratePrimes(security int) (*big.Int, *big.Int) {
+	var helper func(p, pprime *big.Int) (*big.Int, *big.Int)
+	helper = func(p, pprime *big.Int) (*big.Int, *big.Int) {
+		qprime, _ := rand.Prime(rand.Reader, security-1)
+		q := new(big.Int).Add(new(big.Int).Mul(qprime, Two), One)
+		if q.ProbablyPrime(8) {
+			return new(big.Int).Mul(p, q), new(big.Int).Mul(pprime, qprime)
+		}
+		return helper(p, pprime)
+	}
 	pprime, _ := rand.Prime(rand.Reader, security-1)
 	qprime, _ := rand.Prime(rand.Reader, security-1)
 	p := new(big.Int).Add(new(big.Int).Mul(pprime, Two), One)
 	q := new(big.Int).Add(new(big.Int).Mul(qprime, Two), One)
 	if p.ProbablyPrime(8) && q.ProbablyPrime(8) {
 		return new(big.Int).Mul(p, q), new(big.Int).Mul(pprime, qprime)
+	}
+	if p.ProbablyPrime(8) {
+		return helper(p, pprime)
+	}
+	if q.ProbablyPrime(8) {
+		return helper(q, qprime)
 	}
 	return GeneratePrimes(security)
 }
