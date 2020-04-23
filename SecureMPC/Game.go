@@ -63,6 +63,7 @@ func Play() {
 
 // defaults to player one
 var currentPlayer = 1
+var message = ""
 
 //TODO: None of these functions are fully implemented
 func listen(data *ThresholdProtocolData) {
@@ -82,14 +83,14 @@ func listen(data *ThresholdProtocolData) {
 		if cmd == "help" || cmd == "commands" {
 			fmt.Println("help - Print this list of commands")
 			fmt.Println("switchplayer [idOfPlayer] - Select player to switch to")
-			fmt.Println("sign")
-			fmt.Println("sendsignature")
+			fmt.Println("sign [message]")
+			fmt.Println("sendsignature [receivingPlayer]")
 			fmt.Println("sendsignatures")
 			fmt.Print("recombine")
 		}
 		if cmd == "switchplayer" {
 			if len(args) != 1 {
-				fmt.Print("Only 1 parameter is expected. Refer to 'help'")
+				fmt.Print("1 parameter is expected. Refer to 'help'")
 				continue
 			}
 			playerId, err := strconv.Atoi(args[0])
@@ -102,20 +103,29 @@ func listen(data *ThresholdProtocolData) {
 		}
 		if cmd == "sign" {
 			if len(args) != 1 {
-				fmt.Print("Only 1 parameter is expected. Refer to 'help'")
+				fmt.Print("1 parameter is expected. Refer to 'help'")
 				continue
 			}
-			var msg = args[0]
-			signatures[currentPlayer-1] = data.Participants[currentPlayer].SignHashOfMsg(msg)
+			message = args[0]
+			signatures[currentPlayer-1] = data.Participants[currentPlayer].SignHashOfMsg(message)
 			fmt.Print("Message signed")
 		}
 		if cmd == "sendsignature" { // SignatureShares
-			fmt.Print("Select message to send corresponding your own signature")
-			msg, _ := reader.ReadString('\n')
-			msg = str.TrimSpace(msg)
-			fmt.Print("Select player number to receive ")
-			receiver, _ := reader.ReadString('\n')
-			receiver = str.TrimSpace(receiver)
+			if len(args) != 1 {
+				fmt.Print("1 parameter is expected. Refer to 'help'")
+				continue
+			}
+			receivingPlayer, err := strconv.Atoi(args[1])
+			if err != nil || !(1 <= receivingPlayer && receivingPlayer <= data.L) {
+				fmt.Printf("Parameter must be integer in range [%d,%d]", 1, data.L)
+				continue
+			}
+			if message == "" {
+				fmt.Printf("You need to sign a message first. Refer to 'help'")
+				continue
+			}
+			SendSignatureShare(message, signatures[currentPlayer-1], receivingPlayer, data)
+			fmt.Printf("Signature share was sent to Player#%d", receivingPlayer)
 		}
 		if cmd == "sendsignatures" { // SignatureShares
 			fmt.Println("Select a receiver to send all known signatures to")
