@@ -1,9 +1,9 @@
 package main
 
-import (
-	"SecureMPC/SecureMPC"
-)
+import "SecureMPC/SecureMPC"
 
 func main() {
-	SecureMPC.PlaySecureMPC()
+	//SecureMPC.PlaySecureMPC()
+
+	SecureMPC.Play()
 }
