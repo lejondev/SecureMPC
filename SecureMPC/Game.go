@@ -68,7 +68,7 @@ var message = ""
 
 //TODO: None of these functions are fully implemented
 func listen(data *ThresholdProtocolData) {
-	var signatures = make([]*SignatureShare, data.L)
+
 	for {
 		fmt.Printf("Player#%d> ", currentPlayer)
 
@@ -120,7 +120,8 @@ func listen(data *ThresholdProtocolData) {
 				continue
 			}
 			message = args[0]
-			signatures[currentPlayer-1] = data.Participants[currentPlayer].SignHashOfMsg(message)
+			// Player will sign message and save the signature share in its own object
+			data.Participants[currentPlayer].SignHashOfMsg(message)
 			fmt.Print("Message signed\n")
 		}
 		if cmd == "sendsignature" || cmd == "ss" { // SignatureShares
@@ -133,11 +134,13 @@ func listen(data *ThresholdProtocolData) {
 				fmt.Printf("Parameter must be integer in range [%d,%d]\n", 1, data.L)
 				continue
 			}
-			if message == "" {
+			// Check if this message has a signature share
+			share, msgHasSig := data.Participants[currentPlayer].KnownSignatures[message][currentPlayer]
+			if !msgHasSig {
 				fmt.Printf("You need to sign a message first. Refer to 'help'\n")
 				continue
 			}
-			SendSignatureShare(message, signatures[currentPlayer-1], receivingPlayerId, data)
+			SendSignatureShare(message, share, receivingPlayerId, data)
 			fmt.Printf("Signature share was sent to Player#%d\n", receivingPlayerId)
 			// TODO: It seems all players receive the signature share! What is going on?
 		}
