@@ -152,7 +152,6 @@ func listen(data *ThresholdProtocolData) {
 				continue
 			}
 			// Check if this message has a signature share
-			//shares, msgHasSig = data.Participants[currentPlayer].KnownSignatures[message]
 			shares, msgHasSig := data.Participants[currentPlayer].KnownSignatures[message]
 			if !msgHasSig {
 				fmt.Printf("You need to sign a message first. Refer to 'help'\n")
