@@ -128,8 +128,8 @@ func listen(data *ThresholdProtocolData) {
 				fmt.Print("1 parameter is expected. Refer to 'help'\n")
 				continue
 			}
-			receivingPlayer, err := strconv.Atoi(args[0])
-			if err != nil || !(1 <= receivingPlayer && receivingPlayer <= data.L) {
+			receivingPlayerId, err := strconv.Atoi(args[0])
+			if err != nil || !(1 <= receivingPlayerId && receivingPlayerId <= data.L) {
 				fmt.Printf("Parameter must be integer in range [%d,%d]\n", 1, data.L)
 				continue
 			}
@@ -137,8 +137,8 @@ func listen(data *ThresholdProtocolData) {
 				fmt.Printf("You need to sign a message first. Refer to 'help'\n")
 				continue
 			}
-			SendSignatureShare(message, signatures[currentPlayer-1], receivingPlayer, data)
-			fmt.Printf("Signature share was sent to Player#%d\n", receivingPlayer)
+			SendSignatureShare(message, signatures[currentPlayer-1], receivingPlayerId, data)
+			fmt.Printf("Signature share was sent to Player#%d\n", receivingPlayerId)
 			// TODO: It seems all players receive the signature share! What is going on?
 		}
 		if cmd == "sendsignatures" || cmd == "sss" { // SignatureShares
