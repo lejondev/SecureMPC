@@ -100,7 +100,7 @@ func listen(data *ThresholdProtocolData) {
 			fmt.Println("sendsignatures")
 			fmt.Println("recombine")
 		}
-		if cmd == "switchplayer" {
+		if cmd == "switchplayer" || cmd == "sp" {
 			if len(args) != 1 {
 				fmt.Print("1 parameter is expected. Refer to 'help'\n")
 				continue
@@ -113,7 +113,7 @@ func listen(data *ThresholdProtocolData) {
 			currentPlayer = playerId
 			fmt.Printf("You are now player %d of %d\n", currentPlayer, data.L)
 		}
-		if cmd == "sign" {
+		if cmd == "sign" || cmd == "s" {
 			if len(args) != 1 {
 				fmt.Print("1 parameter is expected. Refer to 'help'")
 				continue
@@ -122,7 +122,7 @@ func listen(data *ThresholdProtocolData) {
 			signatures[currentPlayer-1] = data.Participants[currentPlayer].SignHashOfMsg(message)
 			fmt.Print("Message signed\n")
 		}
-		if cmd == "sendsignature" { // SignatureShares
+		if cmd == "sendsignature" || cmd == "ss" { // SignatureShares
 			if len(args) != 1 {
 				fmt.Print("1 parameter is expected. Refer to 'help'\n")
 				continue
@@ -139,12 +139,12 @@ func listen(data *ThresholdProtocolData) {
 			SendSignatureShare(message, signatures[currentPlayer-1], receivingPlayer, data)
 			fmt.Printf("Signature share was sent to Player#%d", receivingPlayer)
 		}
-		if cmd == "sendsignatures" { // SignatureShares
+		if cmd == "sendsignatures" || cmd == "sss" { // SignatureShares
 			fmt.Println("Select a receiver to send all known signatures to")
 			receiver, _ := reader.ReadString('\n')
 			receiver = str.TrimSpace(receiver)
 		}
-		if cmd == "recombine" { // Recombines actual signature
+		if cmd == "recombine" || cmd == "r" { // Recombines actual signature
 
 			fmt.Println("Select a message to try to make the full signature")
 			msg, _ := reader.ReadString('\n')
