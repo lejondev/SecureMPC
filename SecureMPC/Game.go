@@ -146,10 +146,16 @@ func listen(data *ThresholdProtocolData) {
 			receiver = str.TrimSpace(receiver)
 		}
 		if cmd == "recombine" || cmd == "r" { // Recombines actual signature
-
-			fmt.Println("Select a message to try to make the full signature")
-			msg, _ := reader.ReadString('\n')
-			msg = str.TrimSpace(msg)
+			sigmap := data.Participants[currentPlayer-1].KnownSignatures[message]
+			sig, valid := CreateSignature(message, data, sigmap)
+			if !valid {
+				fmt.Println("Error")
+			}
+			if VerifySignature(message, sig, data) {
+				fmt.Println("Success!")
+			} else {
+				fmt.Println("Failure!")
+			}
 		}
 	}
 }
