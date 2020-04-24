@@ -6,6 +6,7 @@ import (
 	_ "github.com/davecgh/go-spew/spew"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 	str "strings"
 )
@@ -69,14 +70,24 @@ var message = ""
 func listen(data *ThresholdProtocolData) {
 	var signatures = make([]*SignatureShare, data.L)
 	for {
-		reader := bufio.NewReader(os.Stdin)
 		fmt.Printf("Player#%d> ", currentPlayer)
-		input, _ := reader.ReadString('\n')
-		strings := str.Split(input, " ")
-		strings = Map(strings, str.TrimSpace)
-		cmd := strings[0]
-		args := strings[1:]
 
+		// Read and parse the command and arguments
+		reader := bufio.NewReader(os.Stdin)
+		input, _ := reader.ReadString('\n')
+		cmdAndArgs := str.SplitN(input, " ", 2)
+		cmdAndArgs = Map(cmdAndArgs, str.TrimSpace)
+		cmd := cmdAndArgs[0] // Command
+		args := []string{}   // Default to 0 args
+
+		// Handle whitespace in arguments by encapsulation with quotes, like "" or ''
+		if len(cmdAndArgs) == 2 {
+			r := regexp.MustCompile(`'.*?'|".*?"|\S+`)
+			args = r.FindAllString(cmdAndArgs[1], -1)
+			args = Map(args, trimQuote)
+		}
+
+		// Commands
 		if cmd == "quit" {
 			return
 		}
@@ -148,4 +159,14 @@ func Map(vs []string, f func(string) string) []string {
 		vsm[i] = f(v)
 	}
 	return vsm
+}
+
+func trimQuote(s string) string {
+	if len(s) > 0 && (s[0] == '"' || s[0] == '\'') {
+		s = s[1:]
+	}
+	if len(s) > 0 && (s[len(s)-1] == '"' || s[0] == '\'') {
+		s = s[:len(s)-1]
+	}
+	return s
 }
