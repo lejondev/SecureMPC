@@ -98,6 +98,7 @@ func listen(data *ThresholdProtocolData) {
 			fmt.Println("sign [message]\n - Create the signature share")
 			fmt.Println("sendsignature [receivingPlayer]\n - send the signature share to specified player")
 			fmt.Println("sendsignatures [receivingPlayer]\n - Send all known signatures to a specified player")
+			fmt.Println("viewsignatures\n - View the signature shares this player knows")
 			fmt.Println("recombine\n - Try computing the full signature from attained shares")
 		}
 		if cmd == "switchplayer" || cmd == "sp" {
@@ -144,6 +145,24 @@ func listen(data *ThresholdProtocolData) {
 
 			receiver, _ := reader.ReadString('\n')
 			receiver = str.TrimSpace(receiver)
+		}
+		if cmd == "viewsignatures" || cmd == "vs" {
+			if len(args) != 0 {
+				fmt.Print("No parameter is expected. Refer to 'help'\n")
+				continue
+			}
+			// Check if this message has a signature share
+			//shares, msgHasSig = data.Participants[currentPlayer].KnownSignatures[message]
+			shares, msgHasSig := data.Participants[currentPlayer].KnownSignatures[message]
+			if !msgHasSig {
+				fmt.Printf("You need to sign a message first. Refer to 'help'\n")
+				continue
+			}
+			fmt.Printf("Player#%d has shares from players: ", currentPlayer)
+			for share := range shares {
+				fmt.Printf("%#v, ", share)
+			}
+			fmt.Println()
 		}
 		if cmd == "recombine" || cmd == "r" { // Recombines actual signature
 			sigmap := data.Participants[currentPlayer-1].KnownSignatures[message]
