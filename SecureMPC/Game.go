@@ -81,25 +81,26 @@ func listen(data *ThresholdProtocolData) {
 			return
 		}
 		if cmd == "help" || cmd == "commands" {
+			fmt.Println("quit - End the program")
 			fmt.Println("help - Print this list of commands")
 			fmt.Println("switchplayer [idOfPlayer] - Select player to switch to")
-			fmt.Println("sign [message]")
+			fmt.Println("sign [message] - Sign a message")
 			fmt.Println("sendsignature [receivingPlayer]")
 			fmt.Println("sendsignatures")
-			fmt.Print("recombine")
+			fmt.Println("recombine")
 		}
 		if cmd == "switchplayer" {
 			if len(args) != 1 {
-				fmt.Print("1 parameter is expected. Refer to 'help'")
+				fmt.Print("1 parameter is expected. Refer to 'help'\n")
 				continue
 			}
 			playerId, err := strconv.Atoi(args[0])
 			if err != nil || !(1 <= playerId && playerId <= data.L) {
-				fmt.Printf("Parameter must be integer in range [%d,%d]", 1, data.L)
+				fmt.Printf("Parameter must be integer in range [%d,%d]\n", 1, data.L)
 				continue
 			}
 			currentPlayer = playerId
-			fmt.Printf("You are now player %d of %d", currentPlayer, data.L)
+			fmt.Printf("You are now player %d of %d\n", currentPlayer, data.L)
 		}
 		if cmd == "sign" {
 			if len(args) != 1 {
@@ -108,20 +109,20 @@ func listen(data *ThresholdProtocolData) {
 			}
 			message = args[0]
 			signatures[currentPlayer-1] = data.Participants[currentPlayer].SignHashOfMsg(message)
-			fmt.Print("Message signed")
+			fmt.Print("Message signed\n")
 		}
 		if cmd == "sendsignature" { // SignatureShares
 			if len(args) != 1 {
-				fmt.Print("1 parameter is expected. Refer to 'help'")
+				fmt.Print("1 parameter is expected. Refer to 'help'\n")
 				continue
 			}
 			receivingPlayer, err := strconv.Atoi(args[1])
 			if err != nil || !(1 <= receivingPlayer && receivingPlayer <= data.L) {
-				fmt.Printf("Parameter must be integer in range [%d,%d]", 1, data.L)
+				fmt.Printf("Parameter must be integer in range [%d,%d]\n", 1, data.L)
 				continue
 			}
 			if message == "" {
-				fmt.Printf("You need to sign a message first. Refer to 'help'")
+				fmt.Printf("You need to sign a message first. Refer to 'help'\n")
 				continue
 			}
 			SendSignatureShare(message, signatures[currentPlayer-1], receivingPlayer, data)
@@ -138,7 +139,6 @@ func listen(data *ThresholdProtocolData) {
 			msg, _ := reader.ReadString('\n')
 			msg = str.TrimSpace(msg)
 		}
-		fmt.Println()
 	}
 }
 
