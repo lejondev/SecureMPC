@@ -92,13 +92,13 @@ func listen(data *ThresholdProtocolData) {
 			return
 		}
 		if cmd == "help" || cmd == "commands" {
-			fmt.Println("quit - End the program")
-			fmt.Println("help - Print this list of commands")
-			fmt.Println("switchplayer [idOfPlayer] - Select player to switch to")
-			fmt.Println("sign [message] - Sign a message")
-			fmt.Println("sendsignature [receivingPlayer]")
-			fmt.Println("sendsignatures")
-			fmt.Println("recombine")
+			fmt.Println("quit\n - End the program")
+			fmt.Println("help\n - Print this list of commands")
+			fmt.Println("switchplayer [idOfPlayer]\n - Select player to switch to")
+			fmt.Println("sign [message]\n - Create the signature share")
+			fmt.Println("sendsignature [receivingPlayer]\n - send the signature share to specified player")
+			fmt.Println("sendsignatures [receivingPlayer]\n - Send all known signatures to a specified player")
+			fmt.Println("recombine\n - Try computing the full signature from attained shares")
 		}
 		if cmd == "switchplayer" || cmd == "sp" {
 			if len(args) != 1 {
@@ -141,7 +141,7 @@ func listen(data *ThresholdProtocolData) {
 			// TODO: It seems all players receive the signature share! What is going on?
 		}
 		if cmd == "sendsignatures" || cmd == "sss" { // SignatureShares
-			fmt.Println("Select a receiver to send all known signatures to")
+
 			receiver, _ := reader.ReadString('\n')
 			receiver = str.TrimSpace(receiver)
 		}
