@@ -151,10 +151,10 @@ func listen(data *ThresholdProtocolData) {
 				fmt.Print("No parameter is expected. Refer to 'help'\n")
 				continue
 			}
-			// Check if this message has a signature share
-			shares, msgHasSig := data.Participants[currentPlayer].KnownSignatures[message]
-			if !msgHasSig {
-				fmt.Printf("You need to sign a message first. Refer to 'help'\n")
+			// Check if this player has signature shares for this message
+			shares, msgHasShares := data.Participants[currentPlayer].KnownSignatures[message]
+			if !msgHasShares {
+				fmt.Printf("No shares. Nobody has sent you shares and you have not signed this message yourself. \n")
 				continue
 			}
 			fmt.Printf("Player#%d has shares from players: ", currentPlayer)
