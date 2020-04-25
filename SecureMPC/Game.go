@@ -108,6 +108,7 @@ var alias = map[string]*Command{
 	"ss":  commands["sendsignature"],
 	"sss": commands["sendsignatures"],
 	"vs":  commands["viewsignatures"],
+	"vm":  commands["viewmessages"],
 	"r":   commands["recombine"],
 }
 
@@ -181,8 +182,27 @@ var commands = map[string]*Command{
 		action: func(args []string, data *ThresholdProtocolData) bool {
 			return true
 		}},
+	"viewmessages": {
+		args:        []string{},
+		description: "View signed and signable messages",
+		action: func(args []string, data *ThresholdProtocolData) bool {
+			messages := data.Participants[currentPlayer].KnownSignatures
+			if len(messages) == 0 {
+				fmt.Println("No signed or unsigned messages. Try signing your own!")
+				return true
+			}
+			for msg, playerSignatures := range messages {
+				if _, contained := playerSignatures[currentPlayer]; contained {
+					fmt.Print("[  signed] ")
+				} else {
+					fmt.Print("[unsigned] ")
+				}
+				fmt.Println(msg)
+			}
+			return true
+		}},
 	"viewsignatures": {
-		args:        []string{"mssage"},
+		args:        []string{"message"},
 		description: "View all signature shares of specified message known by this player",
 		action: func(args []string, data *ThresholdProtocolData) bool {
 			message := args[0]
