@@ -203,7 +203,7 @@ var commands = map[string]*Command{
 		}},
 	"viewsignatures": {
 		args:        []string{"message"},
-		description: "View all signature shares of specified message known by this player",
+		description: "View the signature shares for the specified message gotten from different players",
 		action: func(args []string, data *ThresholdProtocolData) bool {
 			message := args[0]
 			// Check if this player has signature shares for this message
@@ -212,7 +212,8 @@ var commands = map[string]*Command{
 				fmt.Printf("No shares. Nobody has sent you shares and you have not signed this message yourself. \n")
 				return true
 			}
-			fmt.Printf("Player#%d has shares from players: ", currentPlayer)
+			fmt.Println("Got shares from players: ")
+			// Show ids of other players signature shares
 			for share := range shares {
 				fmt.Printf("%#v, ", share)
 			}
