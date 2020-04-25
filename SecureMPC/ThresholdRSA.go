@@ -107,6 +107,7 @@ func (p *ThresholdPlayer) SignHashOfMsg(msg string) *SignatureShare {
 		id:        p.Id,
 	}
 	if len(p.KnownSignatures[msg]) == 0 {
+		//TODO: Fix it! This will add the signature share to every players KnownSignatures data object.
 		p.KnownSignatures[msg] = map[int]*SignatureShare{}
 	}
 	p.KnownSignatures[msg][p.Id] = signatureShare
