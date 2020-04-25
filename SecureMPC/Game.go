@@ -64,7 +64,6 @@ func Play() {
 
 // defaults to player one
 var currentPlayer = 1
-var message = ""
 
 //TODO: None of these functions are fully implemented
 func listen(data *ThresholdProtocolData) {
@@ -96,10 +95,10 @@ func listen(data *ThresholdProtocolData) {
 			fmt.Println("help\n - Print this list of commands")
 			fmt.Println("switchplayer [idOfPlayer]\n - Select player to switch to")
 			fmt.Println("sign [message]\n - Create the signature share")
-			fmt.Println("sendsignature [receivingPlayer]\n - send the signature share to specified player")
-			fmt.Println("sendsignatures [receivingPlayer]\n - Send all known signatures to a specified player")
-			fmt.Println("viewsignatures\n - View the signature shares this player knows")
-			fmt.Println("recombine\n - Try computing the full signature from attained shares")
+			fmt.Println("sendsignature [receivingPlayer] [message]\n - send the signature share of specified message to specified player")
+			fmt.Println("sendsignatures [receivingPlayer] [message]\n - Send all known message signature shares to specified player")
+			fmt.Println("viewsignatures [message]\n - View all signature shares of specified message known by this player")
+			fmt.Println("recombine [message]\n - Try computing the full signature of specified message using known signature shares")
 		}
 		if cmd == "switchplayer" || cmd == "sp" {
 			if len(args) != 1 {
@@ -119,14 +118,14 @@ func listen(data *ThresholdProtocolData) {
 				fmt.Print("1 parameter is expected. Refer to 'help'")
 				continue
 			}
-			message = args[0]
+			message := args[0]
 			// Player will sign message and save the signature share in its own object
 			data.Participants[currentPlayer].SignHashOfMsg(message)
 			fmt.Print("Message signed\n")
 		}
 		if cmd == "sendsignature" || cmd == "ss" { // SignatureShares
-			if len(args) != 1 {
-				fmt.Print("1 parameter is expected. Refer to 'help'\n")
+			if len(args) != 2 {
+				fmt.Print("2 parameters are expected. Refer to 'help'\n")
 				continue
 			}
 			receivingPlayerId, err := strconv.Atoi(args[0])
@@ -134,10 +133,11 @@ func listen(data *ThresholdProtocolData) {
 				fmt.Printf("Parameter must be integer in range [%d,%d]\n", 1, data.L)
 				continue
 			}
+			message := args[1]
 			// Check if this message has a signature share
 			share, msgHasSig := data.Participants[currentPlayer].KnownSignatures[message][currentPlayer]
 			if !msgHasSig {
-				fmt.Printf("You need to sign a message first. Refer to 'help'\n")
+				fmt.Printf("You need to sign this message first. Refer to 'help'\n")
 				continue
 			}
 			SendSignatureShare(message, share, receivingPlayerId, data)
@@ -149,10 +149,11 @@ func listen(data *ThresholdProtocolData) {
 			receiver = str.TrimSpace(receiver)
 		}
 		if cmd == "viewsignatures" || cmd == "vs" {
-			if len(args) != 0 {
-				fmt.Print("No parameter is expected. Refer to 'help'\n")
+			if len(args) != 1 {
+				fmt.Print("1 parameter is expected. Refer to 'help'\n")
 				continue
 			}
+			message := args[0]
 			// Check if this player has signature shares for this message
 			shares, msgHasShares := data.Participants[currentPlayer].KnownSignatures[message]
 			if !msgHasShares {
@@ -166,6 +167,7 @@ func listen(data *ThresholdProtocolData) {
 			fmt.Println()
 		}
 		if cmd == "recombine" || cmd == "r" { // Recombines actual signature
+			message := args[0]
 			sigmap := data.Participants[currentPlayer-1].KnownSignatures[message]
 			sig, valid := CreateSignature(message, data, sigmap)
 			if !valid {
