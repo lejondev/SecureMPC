@@ -72,7 +72,7 @@ func messenger(data *ThresholdProtocolData) {
 		} else if cmd, exists := commands[cmdStr]; exists {
 			running = cmd.execute(args, data)
 		} else {
-			running = false
+			fmt.Println("Unknown command. Refer to 'help'")
 		}
 
 	}
