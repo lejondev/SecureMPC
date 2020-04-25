@@ -142,7 +142,6 @@ func listen(data *ThresholdProtocolData) {
 			}
 			SendSignatureShare(message, share, receivingPlayerId, data)
 			fmt.Printf("Signature share was sent to Player#%d\n", receivingPlayerId)
-			// TODO: It seems all players receive the signature share! What is going on?
 		}
 		if cmd == "sendsignatures" || cmd == "sss" { // SignatureShares
 
