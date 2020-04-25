@@ -22,13 +22,6 @@ func Play() {
 		log.Print("Input failed due to:  ", err)
 	}
 
-	// Adversaries - Number of corrupted players
-	//fmt.Print("Enter amount of corrupted players (t): ")
-	//var t int
-	//if _, err := fmt.Scan(&t); err != nil {
-	//	log.Print("Input failed due to:  ", err)
-	//}
-
 	// Threshold - Num signature shares needed to obtain a signature (k)
 	fmt.Print("Enter amount of signature shares needed to obtain a signature (k): ")
 	var k int
@@ -46,29 +39,16 @@ func Play() {
 	fmt.Println("Type 'help' for an overview of commands")
 
 	// Start listening
-	listen(data)
-
-	//sigmap := data.Participants[1].KnownSignatures[message]
-	//sig, valid := SecureMPC.CreateSignature(message, data, sigmap)
-	//if !valid {
-	//	fmt.Println("Error")
-	//}
-	//if SecureMPC.VerifySignature(message, sig, data) {
-	//	fmt.Println("Success!")
-	//} else {
-	//	fmt.Println("Failure!")
-	//	t.Errorf("Verification failed")
-	//}
-
+	messenger(data)
 }
 
 // defaults to player one
 var currentPlayer = 1
 
-//TODO: None of these functions are fully implemented
-func listen(data *ThresholdProtocolData) {
-
-	for {
+// messenger will listen and handle console input
+func messenger(data *ThresholdProtocolData) {
+	running := true
+	for running {
 		fmt.Printf("Player#%d> ", currentPlayer)
 
 		// Read and parse the command and arguments
@@ -76,8 +56,8 @@ func listen(data *ThresholdProtocolData) {
 		input, _ := reader.ReadString('\n')
 		cmdAndArgs := str.SplitN(input, " ", 2)
 		cmdAndArgs = Map(cmdAndArgs, str.TrimSpace)
-		cmd := cmdAndArgs[0] // Command
-		args := []string{}   // Default to 0 args
+		cmdStr := cmdAndArgs[0] // Command
+		args := []string{}      // Default to 0 args
 
 		// Handle whitespace in arguments by encapsulation with quotes, like "" or ''
 		if len(cmdAndArgs) == 2 {
@@ -86,11 +66,62 @@ func listen(data *ThresholdProtocolData) {
 			args = Map(args, trimQuote)
 		}
 
-		// Commands
-		if cmd == "quit" {
-			return
+		// Execute command
+		if cmd, exists := alias[cmdStr]; exists {
+			running = cmd.execute(args, data)
+		} else if cmd, exists := commands[cmdStr]; exists {
+			running = cmd.execute(args, data)
+		} else {
+			running = false
 		}
-		if cmd == "help" || cmd == "commands" {
+
+	}
+}
+
+type Command struct {
+	args        []string
+	description string
+	action      func(args []string, data *ThresholdProtocolData) bool
+}
+
+func (command *Command) execute(argsGiven []string, data *ThresholdProtocolData) bool {
+	numArgsRequired := len(command.args)
+	if len(argsGiven) != numArgsRequired {
+		fmt.Printf("Expected %d argument(s): "+command.usage()+"\n", numArgsRequired)
+		return true
+	}
+	return command.action(argsGiven, data)
+}
+func (command *Command) usage() string {
+	usage := ""
+	for _, arg := range command.args {
+		usage = usage + "[" + arg + "] "
+	}
+	return usage
+}
+
+var alias = map[string]*Command{
+	"q":   commands["quit"],
+	"h":   commands["help"],
+	"sp":  commands["switchplayer"],
+	"s":   commands["sign"],
+	"ss":  commands["sendsignature"],
+	"sss": commands["sendsignatures"],
+	"vs":  commands["viewsignatures"],
+	"r":   commands["recombine"],
+}
+
+var commands = map[string]*Command{
+	"quit": {
+		args:        []string{},
+		description: "End the program",
+		action: func(args []string, data *ThresholdProtocolData) bool {
+			return false
+		}},
+	"help": {
+		args:        []string{},
+		description: "Print this list of commands",
+		action: func(args []string, data *ThresholdProtocolData) bool {
 			fmt.Println("quit\n - End the program")
 			fmt.Println("help\n - Print this list of commands")
 			fmt.Println("switchplayer [idOfPlayer]\n - Select player to switch to")
@@ -99,74 +130,79 @@ func listen(data *ThresholdProtocolData) {
 			fmt.Println("sendsignatures [receivingPlayer] [message]\n - Send all known message signature shares to specified player")
 			fmt.Println("viewsignatures [message]\n - View all signature shares of specified message known by this player")
 			fmt.Println("recombine [message]\n - Try computing the full signature of specified message using known signature shares")
-		}
-		if cmd == "switchplayer" || cmd == "sp" {
-			if len(args) != 1 {
-				fmt.Print("1 parameter is expected. Refer to 'help'\n")
-				continue
-			}
+			return true
+		}},
+	"switchplayer": {
+		args:        []string{"iOfPlayer"},
+		description: "Select player to switch to",
+		action: func(args []string, data *ThresholdProtocolData) bool {
 			playerId, err := strconv.Atoi(args[0])
 			if err != nil || !(1 <= playerId && playerId <= data.L) {
 				fmt.Printf("Parameter must be integer in range [%d,%d]\n", 1, data.L)
-				continue
+				return true
 			}
 			currentPlayer = playerId
 			fmt.Printf("You are now player %d of %d\n", currentPlayer, data.L)
-		}
-		if cmd == "sign" || cmd == "s" {
-			if len(args) != 1 {
-				fmt.Print("1 parameter is expected. Refer to 'help'")
-				continue
-			}
+			return true
+		}},
+	"sign": {
+		args:        []string{"mssage"},
+		description: "Create the signature share",
+		action: func(args []string, data *ThresholdProtocolData) bool {
 			message := args[0]
 			// Player will sign message and save the signature share in its own object
 			data.Participants[currentPlayer].SignHashOfMsg(message)
 			fmt.Print("Message signed\n")
-		}
-		if cmd == "sendsignature" || cmd == "ss" { // SignatureShares
-			if len(args) != 2 {
-				fmt.Print("2 parameters are expected. Refer to 'help'\n")
-				continue
-			}
+			return true
+		}},
+	"sendsignature": {
+		args:        []string{"rceivingPlayer", "message"},
+		description: "Send the signature share of specified message to specified player",
+		action: func(args []string, data *ThresholdProtocolData) bool {
 			receivingPlayerId, err := strconv.Atoi(args[0])
 			if err != nil || !(1 <= receivingPlayerId && receivingPlayerId <= data.L) {
 				fmt.Printf("Parameter must be integer in range [%d,%d]\n", 1, data.L)
-				continue
+				return true
 			}
 			message := args[1]
 			// Check if this message has a signature share
 			share, msgHasSig := data.Participants[currentPlayer].KnownSignatures[message][currentPlayer]
 			if !msgHasSig {
 				fmt.Printf("You need to sign this message first. Refer to 'help'\n")
-				continue
+				return true
 			}
 			SendSignatureShare(message, share, receivingPlayerId, data)
 			fmt.Printf("Signature share was sent to Player#%d\n", receivingPlayerId)
-		}
-		if cmd == "sendsignatures" || cmd == "sss" { // SignatureShares
-
-			receiver, _ := reader.ReadString('\n')
-			receiver = str.TrimSpace(receiver)
-		}
-		if cmd == "viewsignatures" || cmd == "vs" {
-			if len(args) != 1 {
-				fmt.Print("1 parameter is expected. Refer to 'help'\n")
-				continue
-			}
+			return true
+		}},
+	"sendsignatures": {
+		args:        []string{"rceivingPlayer", "message"},
+		description: "Send all known message signature shares to specified player",
+		action: func(args []string, data *ThresholdProtocolData) bool {
+			return true
+		}},
+	"viewsignatures": {
+		args:        []string{"mssage"},
+		description: "View all signature shares of specified message known by this player",
+		action: func(args []string, data *ThresholdProtocolData) bool {
 			message := args[0]
 			// Check if this player has signature shares for this message
 			shares, msgHasShares := data.Participants[currentPlayer].KnownSignatures[message]
 			if !msgHasShares {
 				fmt.Printf("No shares. Nobody has sent you shares and you have not signed this message yourself. \n")
-				continue
+				return true
 			}
 			fmt.Printf("Player#%d has shares from players: ", currentPlayer)
 			for share := range shares {
 				fmt.Printf("%#v, ", share)
 			}
 			fmt.Println()
-		}
-		if cmd == "recombine" || cmd == "r" { // Recombines actual signature
+			return true
+		}},
+	"recombine": {
+		args:        []string{"mssage"},
+		description: "Try computing the full signature of specified message using known signature shares",
+		action: func(args []string, data *ThresholdProtocolData) bool {
 			message := args[0]
 			sigmap := data.Participants[currentPlayer-1].KnownSignatures[message]
 			sig, valid := CreateSignature(message, data, sigmap)
@@ -178,8 +214,8 @@ func listen(data *ThresholdProtocolData) {
 			} else {
 				fmt.Println("Failure!")
 			}
-		}
-	}
+			return true
+		}},
 }
 
 func Map(vs []string, f func(string) string) []string {
