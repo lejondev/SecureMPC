@@ -50,7 +50,6 @@ func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
 	v := GenerateRandomQuadratic(n)
 	verificationKeys := GenerateVerificationKeys(secretKeyShares, v, n)
 	participants := make([]*ThresholdPlayer, l+1)
-	emptymap := map[string]map[int]*SignatureShare{}
 	data := &ThresholdProtocolData{
 		L:                l,
 		K:                k,
@@ -62,6 +61,7 @@ func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
 		VerificationKeys: verificationKeys,
 	}
 	for i := 1; i <= l; i++ {
+		emptymap := map[string]map[int]*SignatureShare{}
 		participants[i] = &ThresholdPlayer{
 			secretKeyShare:  secretKeyShares[i],
 			Id:              i,
