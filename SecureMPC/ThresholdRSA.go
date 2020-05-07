@@ -44,7 +44,7 @@ type ThresholdPlayer struct {
 // ThresholdProtocolSetup will initialise settings and setup data structures
 // l is amount of players, k is amount of signatures needed
 func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
-	n, e, d, m := GenerateRSAKey(257) // Maybe it should be higher but it takes an eternity
+	n, e, d, m := GenerateRSAKey(512)
 	poly := GenerateRandomBigPolynomial(d, m, k-1)
 	secretKeyShares := GenerateSecretShares(poly, m, l)
 	v := GenerateRandomQuadratic(n)

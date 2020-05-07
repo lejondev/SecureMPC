@@ -17,10 +17,11 @@ var e = big.NewInt(65537)
 // brute force
 func GeneratePrimes(security int) (*big.Int, *big.Int) {
 	var helper func(p, pprime *big.Int) (*big.Int, *big.Int)
+	certainty := 128
 	helper = func(p, pprime *big.Int) (*big.Int, *big.Int) {
 		qprime, _ := rand.Prime(rand.Reader, security-1)
 		q := new(big.Int).Add(new(big.Int).Mul(qprime, Two), One)
-		if q.ProbablyPrime(8) {
+		if q.ProbablyPrime(certainty) {
 			return new(big.Int).Mul(p, q), new(big.Int).Mul(pprime, qprime)
 		}
 		return helper(p, pprime)
@@ -29,13 +30,15 @@ func GeneratePrimes(security int) (*big.Int, *big.Int) {
 	qprime, _ := rand.Prime(rand.Reader, security-1)
 	p := new(big.Int).Add(new(big.Int).Mul(pprime, Two), One)
 	q := new(big.Int).Add(new(big.Int).Mul(qprime, Two), One)
-	if p.ProbablyPrime(8) && q.ProbablyPrime(8) {
+	pprob := p.ProbablyPrime(certainty)
+	qprob := q.ProbablyPrime(certainty)
+	if pprob && qprob {
 		return new(big.Int).Mul(p, q), new(big.Int).Mul(pprime, qprime)
 	}
-	if p.ProbablyPrime(8) {
+	if pprob {
 		return helper(p, pprime)
 	}
-	if q.ProbablyPrime(8) {
+	if qprob {
 		return helper(q, qprime)
 	}
 	return GeneratePrimes(security)
