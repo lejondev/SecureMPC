@@ -32,7 +32,7 @@ func TestAddition(t *testing.T) {
 		}
 		secretsums[i] = secretsum
 	}
-	for i := 1; i <= nplayers; i++ {
+	for i := 1; i <= data.GetTolerance()+1; i++ {
 		player := data.GetPlayer(0)
 		player.SetShareOfId(0, i, secretsums[i])
 	}
