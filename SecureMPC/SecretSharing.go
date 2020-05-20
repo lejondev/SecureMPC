@@ -45,11 +45,10 @@ func (p *ProtocolData) GetNumberOfParticipants() int {
 // MakeProtocolData creates a ProtocolData object
 func MakeProtocolData(base, n int) *ProtocolData {
 	participants := make([]*Player, n+1)
-	for i := 1; i <= n; i++ {
+	for i := 0; i <= n; i++ {
 		participants[i] = MakePlayer(0, i, n)
 		// Initial secret is just 0
 	}
-	participants[0] = MakePlayer(0, 0, n)
 	return &ProtocolData{
 		base:         base,
 		n:            n,
@@ -60,7 +59,7 @@ func MakeProtocolData(base, n int) *ProtocolData {
 
 func MakePlayer(secret, id int, n int) *Player {
 	mapmap := map[int]map[int]int{} // Allocates all the maps for all players. Initially they are empty
-	for i := 1; i <= n; i++ {
+	for i := 0; i <= n; i++ {
 		mapmap[i] = map[int]int{}
 	}
 	return &Player{
@@ -318,7 +317,7 @@ func (p *Player) GetShares() []int {
 	return arr
 }
 
-func (p *Player) GetSharesOfId(id int) []int {
+func (p *Player) GetKnownSharesOfId(id int) []int {
 	arr := make([]int, 0, len(p.knownShares[id]))
 	for _, value := range p.knownShares[id] {
 		arr = append(arr, value)
@@ -331,4 +330,8 @@ func (p *Player) GetMap() map[int]int {
 }
 func (p *Player) GetMapOfId(id int) map[int]int {
 	return p.knownShares[id]
+}
+
+func (p *Player) SetShareOfId(playerid, shareid, share int) {
+	p.knownShares[playerid][shareid] = share
 }

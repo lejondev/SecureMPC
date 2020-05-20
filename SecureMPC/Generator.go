@@ -15,9 +15,10 @@ var e = big.NewInt(65537)
 // GeneratePrimes will generate two random primes n=p*q and m=p'*q'
 // security is the length of the primes p,q used
 // brute force
-func GeneratePrimes(security int) (*big.Int, *big.Int) {
+func GeneratePrimes(moduloSize int) (*big.Int, *big.Int) {
+	security := moduloSize / 2
 	var helper func(p, pprime *big.Int) (*big.Int, *big.Int)
-	certainty := 128
+	certainty := 32
 	helper = func(p, pprime *big.Int) (*big.Int, *big.Int) {
 		qprime, _ := rand.Prime(rand.Reader, security-1)
 		q := new(big.Int).Add(new(big.Int).Mul(qprime, Two), One)
@@ -41,7 +42,7 @@ func GeneratePrimes(security int) (*big.Int, *big.Int) {
 	if qprob {
 		return helper(q, qprime)
 	}
-	return GeneratePrimes(security)
+	return GeneratePrimes(moduloSize)
 }
 
 // GenerateRandomQuadratic will create a number v^2, where 0<v<n is uniformly random
