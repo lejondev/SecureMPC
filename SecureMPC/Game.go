@@ -34,7 +34,7 @@ func Play() {
 
 	// Setup
 	fmt.Println("Creating data. Please wait ...")
-	data := ThresholdProtocolSetup(l, k)
+	data := ThresholdProtocolSetup(l, k, 1024)
 	fmt.Println("Data created")
 	fmt.Println("Type 'help' for an overview of commands")
 

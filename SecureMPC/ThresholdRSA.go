@@ -31,6 +31,8 @@ type ThresholdProtocolData struct {
 	V                *big.Int
 	Participants     []*ThresholdPlayer // Participants contains the participating players
 	VerificationKeys []*big.Int
+	GCDa             *big.Int
+	GCDb             *big.Int
 }
 
 // Player contains the information a player has and learns along the way
@@ -43,8 +45,12 @@ type ThresholdPlayer struct {
 
 // ThresholdProtocolSetup will initialise settings and setup data structures
 // l is amount of players, k is amount of signatures needed
-func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
-	n, e, d, m := GenerateRSAKey(512)
+func ThresholdProtocolSetup(l, k, keysize int) *ThresholdProtocolData {
+	n, e, d, m := GenerateRSAKey(keysize)
+	return ThresholdProtocolSetupFromKey(l, k, n, e, d, m)
+}
+
+func ThresholdProtocolSetupFromKey(l, k int, n, e, d, m *big.Int) *ThresholdProtocolData {
 	poly := GenerateRandomBigPolynomial(d, m, k-1)
 	secretKeyShares := GenerateSecretShares(poly, m, l)
 	v := GenerateRandomQuadratic(n)
@@ -70,6 +76,13 @@ func ThresholdProtocolSetup(l, k int) *ThresholdProtocolData {
 		}
 	}
 	data.Participants = participants
+	twodelta := new(big.Int).Mul(data.Delta, Two)
+	fourdeltasquared := new(big.Int).Mul(twodelta, twodelta)
+	a := big.NewInt(0)
+	b := big.NewInt(0)
+	_ = new(big.Int).GCD(a, b, fourdeltasquared, data.E) // This is actually a constant that is known
+	data.GCDa = a
+	data.GCDb = b
 	return data
 }
 
@@ -158,43 +171,44 @@ func (p *ThresholdPlayer) AddShare(msg string, signatureShare *SignatureShare) {
 }
 
 // CreateSignature will create the signature for the message from k participants signature shares
-func CreateSignature(msg string, data *ThresholdProtocolData, signatureShares map[int]*SignatureShare) (*big.Int, bool) {
+func CreateSignature(msg string, data *ThresholdProtocolData, sigShares map[int]*SignatureShare) (*big.Int, bool) {
 	digest := sha256.Sum256([]byte(msg))
 	x := new(big.Int).SetBytes(digest[:])
-	if len(signatureShares) < data.K {
+	if len(sigShares) < data.K {
 		fmt.Println("Too few known signature shares")
 		return big.NewInt(0), false
 	}
 	w := big.NewInt(1)
+	signatureShares := map[int]*SignatureShare{}
+	count := 0
+	for k, v := range sigShares {
+		if count < data.K {
+			signatureShares[k] = v
+		}
+		count++
+	}
+
 	for i, v := range signatureShares {
 		// delta_i(0), because we evaluate h(x) at x=0
 		// top/bottom = (0-j)/(i-j)
-		top := 1
-		bottom := 1
+		top := One
+		bottom := One
 		for j := range signatureShares {
 			if j != i {
-				top = top * -j
-				bottom = bottom * (i - j)
+				top = new(big.Int).Mul(top, big.NewInt(int64(-j)))
+				bottom = new(big.Int).Mul(bottom, big.NewInt(int64(i-j)))
 			}
 		}
-		topB := big.NewInt(int64(top))
-		bottomB := big.NewInt(int64(bottom))
-		topBDelta := new(big.Int).Mul(topB, data.Delta)
-		lambda := new(big.Int).Div(topBDelta, bottomB)
+		topBDelta := new(big.Int).Mul(top, data.Delta)
+		lambda := new(big.Int).Div(topBDelta, bottom)
 		xipow := new(big.Int).Exp(v.signature, lambda, data.N)
 		w.Mul(w, xipow)
-		w.Mod(w, data.N) // might not be needed
+		//w.Mod(w, data.N) // might not be needed
 	}
 	w.Exp(w, Two, data.N) // To do essentially mod m, might not strictly be necessary as long as everyone behaves properly
-	twodelta := new(big.Int).Mul(data.Delta, Two)
-	fourdeltasquared := new(big.Int).Mul(twodelta, twodelta)
-	// GCD sets a and b to the correct values we need such that e'a + eb = 1
-	// These numbers are actually constant, we could consider throwing them in the Data structure
-	a := big.NewInt(0)
-	b := big.NewInt(0)
-	_ = new(big.Int).GCD(a, b, fourdeltasquared, data.E) // This is actually a constant that is known
-	wa := new(big.Int).Exp(w, a, data.N)
-	xb := new(big.Int).Exp(x, b, data.N)
+	// GCD has set a and b to the correct values we need such that e'a + eb = 1, e' = 4Delta^2
+	wa := new(big.Int).Exp(w, data.GCDa, data.N)
+	xb := new(big.Int).Exp(x, data.GCDb, data.N)
 	y := new(big.Int).Mul(wa, xb)
 	ye := new(big.Int).Exp(y, data.E, data.N)
 	return y, ye.Cmp(x) == 0 // At this point x and y^E should be equal
@@ -238,7 +252,6 @@ func RequestSignatures(msg string, data *ThresholdProtocolData) []*SignatureShar
 // FullSignAndDistribute will request signatures and distribute them
 func FullSignAndDistribute(msg string, data *ThresholdProtocolData) {
 	signatures := RequestSignatures(msg, data)
-	fmt.Println("Signatures made")
 	for _, signature := range signatures {
 		DistributeSignatureShare(msg, signature, data)
 	}

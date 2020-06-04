@@ -8,7 +8,7 @@ import (
 
 func TestThresholdProtocol(t *testing.T) {
 	message := "Hi hello"
-	data := SecureMPC.ThresholdProtocolSetup(7, 3)
+	data := SecureMPC.ThresholdProtocolSetup(7, 3, 1024)
 	fmt.Println("Data created")
 	SecureMPC.FullSignAndDistribute(message, data)
 	fmt.Println("Signing completed created")
