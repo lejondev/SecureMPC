@@ -25,7 +25,7 @@ type SignatureShare struct {
 type ThresholdProtocolData struct {
 	L                int // L is the number of Participants
 	K                int
-	N                *big.Int // N is the base of the finite field
+	N                *big.Int // N is the RSA modulo
 	E                *big.Int
 	Delta            *big.Int
 	V                *big.Int
@@ -80,7 +80,7 @@ func ThresholdProtocolSetupFromKey(l, k int, n, e, d, m *big.Int) *ThresholdProt
 	fourdeltasquared := new(big.Int).Mul(twodelta, twodelta)
 	a := big.NewInt(0)
 	b := big.NewInt(0)
-	_ = new(big.Int).GCD(a, b, fourdeltasquared, data.E) // This is actually a constant that is known
+	_ = new(big.Int).GCD(a, b, fourdeltasquared, data.E)
 	data.GCDa = a
 	data.GCDb = b
 	return data
@@ -104,7 +104,6 @@ func (p *ThresholdPlayer) SignHashOfMsg(msg string) *SignatureShare {
 	// sets r to be a random number from 0 to 2^(1024)-1
 	r, _ := rand.Int(rand.Reader, new(big.Int).SetBytes(bytes))
 	vi := data.VerificationKeys[p.Id]
-	// Unsure if below should be modulo N
 	fourdelta := new(big.Int).Mul(Two, twodelta)
 	xtilde := new(big.Int).Exp(x, fourdelta, data.N)
 	xprime := new(big.Int).Exp(xtilde, r, data.N)
@@ -120,7 +119,6 @@ func (p *ThresholdPlayer) SignHashOfMsg(msg string) *SignatureShare {
 		id:        p.Id,
 	}
 	if len(p.KnownSignatures[msg]) == 0 {
-		//TODO: Fix it! This will add the signature share to every players KnownSignatures data object.
 		p.KnownSignatures[msg] = map[int]*SignatureShare{}
 	}
 	p.KnownSignatures[msg][p.Id] = signatureShare
@@ -203,9 +201,8 @@ func CreateSignature(msg string, data *ThresholdProtocolData, sigShares map[int]
 		lambda := new(big.Int).Div(topBDelta, bottom)
 		xipow := new(big.Int).Exp(v.signature, lambda, data.N)
 		w.Mul(w, xipow)
-		//w.Mod(w, data.N) // might not be needed
 	}
-	w.Exp(w, Two, data.N) // To do essentially mod m, might not strictly be necessary as long as everyone behaves properly
+	w.Exp(w, Two, data.N)
 	// GCD has set a and b to the correct values we need such that e'a + eb = 1, e' = 4Delta^2
 	wa := new(big.Int).Exp(w, data.GCDa, data.N)
 	xb := new(big.Int).Exp(x, data.GCDb, data.N)
@@ -254,5 +251,12 @@ func FullSignAndDistribute(msg string, data *ThresholdProtocolData) {
 	signatures := RequestSignatures(msg, data)
 	for _, signature := range signatures {
 		DistributeSignatureShare(msg, signature, data)
+	}
+}
+
+func FullSignAndSendToOne(msg string, data *ThresholdProtocolData, pid int) {
+	signatures := RequestSignatures(msg, data)
+	for _, signature := range signatures {
+		SendSignatureShare(msg, signature, pid, data)
 	}
 }

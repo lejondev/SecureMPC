@@ -11,7 +11,7 @@ import (
 // ProtocolData contains the configuration and current state of the protocol.
 // Its participant field is being worked on under execution.
 type ProtocolData struct {
-	base         int       // base is the base of the finite field
+	base         int       // base is the moduo base
 	n            int       // N is the number of Participants
 	t            int       // t is the number of adversaries
 	participants []*Player // Participants contains the participating players
@@ -89,8 +89,6 @@ func (p *Player) DistributeSecretShares(data *ProtocolData) {
 // another specified player (receiver)
 func (p *Player) SendShare(idOfPlayer, idOfShare int, receiver *Player) {
 	theShare := p.knownShares[idOfPlayer][idOfShare]
-	// TODO: Should check that the sender knows share idOfShare (prevent not-an-element-error)
-	// TODO: Should probably check that it is currently unknown for the other player (prevent overriding)
 	receiver.knownShares[idOfPlayer][idOfShare] = theShare
 }
 
@@ -146,7 +144,7 @@ func PlaySecureMPC() {
 	fmt.Println("PHASE 0 - Configuration\n")
 
 	// finite field F_base
-	fmt.Print("Enter prime base for finite field (base): ")
+	fmt.Print("Enter (ideally) a prime base for finite field: ")
 	var base int
 	if _, err := fmt.Scan(&base); err != nil {
 		log.Print("Input failed due to:  ", err)
@@ -188,9 +186,6 @@ func PlaySecureMPC() {
 
 	// Create polynomial and then, compute shares of the secret
 	player.CreateShares(*protocol)
-
-	// TODO: print used polynomial
-	//fmt.Println("OK! Polynomial is: h(x)= " + player.GetPolynomial().toStr())
 
 	// Print shares
 	var shares = player.GetShares()
@@ -258,9 +253,10 @@ func mod(num int, base int) int {
 	}
 }
 
-// A naive method to find modulor
+// A naive method to find modulo
 // multiplicative inverse of 'a'
 // under modulo 'm'
+// faster would be EGCD
 func modInverse(a int, m int) int {
 	a = a % m
 	for x := 1; x < m; x++ {
@@ -296,15 +292,6 @@ func (p *Polynomial) eval(x int) int {
 		constant += p.coefs[i] * int(math.Pow(float64(x), float64(exp)))
 	}
 	return constant
-}
-
-func contains(s []int, e int) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }
 
 // Some functions that might be useful for testing or debugging or whatever

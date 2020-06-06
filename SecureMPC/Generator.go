@@ -41,7 +41,7 @@ func GenerateRandomQuadratic(n *big.Int) *big.Int {
 // n is the RSA modulus
 // e is the public exponent
 // d is the private exponent
-// m is the RSA message and the finite field base
+// m is size of the quadratic subgroup
 func GenerateRSAKey(security int) (*big.Int, *big.Int, *big.Int, *big.Int) {
 	n, m := GeneratePrimes(security)
 	// This mod inverse should not be able to fail, as m should be a product of two primes, none of which can be equal to e
@@ -79,12 +79,12 @@ func (p *BigPolynomial) String() string {
 //	s_i = f(i) mod field_base
 // where
 // eval_zero is the secret to be shared,
-// field_base is the modulo base and
+// fbase is the modulo base and
 // s_i the shares to be distributed
-func GenerateRandomBigPolynomial(eval_zero *big.Int, field_base *big.Int, degree int) *BigPolynomial {
+func GenerateRandomBigPolynomial(eval_zero *big.Int, base *big.Int, degree int) *BigPolynomial {
 	coefs := make([]*big.Int, degree)
 	for i := 0; i < degree; i++ {
-		coefs[i], _ = rand.Int(rand.Reader, field_base)
+		coefs[i], _ = rand.Int(rand.Reader, base)
 	}
 	return &BigPolynomial{
 		constant: eval_zero,
@@ -93,10 +93,10 @@ func GenerateRandomBigPolynomial(eval_zero *big.Int, field_base *big.Int, degree
 }
 
 // GenerateSecretShares will use a polynomial to generate secret key shares for l participants
-func GenerateSecretShares(poly *BigPolynomial, field_base *big.Int, l int) []*big.Int {
+func GenerateSecretShares(poly *BigPolynomial, base *big.Int, l int) []*big.Int {
 	shares := make([]*big.Int, l+1)
 	for i := 1; i <= l; i++ {
-		shares[i] = poly.eval(big.NewInt(int64(i)), field_base)
+		shares[i] = poly.eval(big.NewInt(int64(i)), base)
 	}
 	return shares
 }

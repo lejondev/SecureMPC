@@ -153,7 +153,7 @@ var commands = map[string]*Command{
 			message := args[0]
 			// Player will sign message and save the signature share in its own object
 			data.Participants[currentPlayer].SignHashOfMsg(message)
-			fmt.Print("Message signed\n")
+			fmt.Print("Signature share created\n")
 			return true
 		}},
 	"sendsignature": {
