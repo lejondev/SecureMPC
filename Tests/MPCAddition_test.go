@@ -8,7 +8,7 @@ import (
 
 func TestAddition(t *testing.T) {
 	nplayers := 11
-	data := SecureMPC.MakeProtocolData(1087, nplayers)
+	data := SecureMPC.MakeProtocolData(1087, nplayers, 5)
 	sum := 0
 	for i := 1; i <= nplayers; i++ {
 		player := data.GetPlayer(i)
@@ -32,7 +32,7 @@ func TestAddition(t *testing.T) {
 		}
 		secretsums[i] = secretsum
 	}
-	for i := 1; i <= data.GetTolerance()+1; i++ {
+	for i := 1; i <= data.GetThreshold()+1; i++ {
 		player := data.GetPlayer(0)
 		player.SetShareOfId(0, i, secretsums[i])
 	}

@@ -13,7 +13,7 @@ import (
 type ProtocolData struct {
 	base         int       // base is the moduo base
 	n            int       // N is the number of Participants
-	t            int       // t is the number of adversaries
+	k            int       // k is the number of adversaries
 	participants []*Player // Participants contains the participating players
 }
 
@@ -34,8 +34,8 @@ type Player struct {
 func (p *ProtocolData) GetPlayer(id int) *Player {
 	return p.participants[id]
 }
-func (p *ProtocolData) GetTolerance() int {
-	return p.t
+func (p *ProtocolData) GetThreshold() int {
+	return p.k
 }
 
 func (p *ProtocolData) GetNumberOfParticipants() int {
@@ -43,7 +43,7 @@ func (p *ProtocolData) GetNumberOfParticipants() int {
 }
 
 // MakeProtocolData creates a ProtocolData object
-func MakeProtocolData(base, n int) *ProtocolData {
+func MakeProtocolData(base, n, k int) *ProtocolData {
 	participants := make([]*Player, n+1)
 	for i := 0; i <= n; i++ {
 		participants[i] = MakePlayer(0, i, n)
@@ -52,7 +52,7 @@ func MakeProtocolData(base, n int) *ProtocolData {
 	return &ProtocolData{
 		base:         base,
 		n:            n,
-		t:            int(math.Floor(float64((n - 1) / 2))),
+		k:            k,
 		participants: participants,
 	}
 }
@@ -123,9 +123,9 @@ func (p *Player) RecomputeSecret(id int, data ProtocolData) int {
 }
 
 func makeShares(s int, data ProtocolData) map[int]int {
-	coefs := make([]int, data.t)
+	coefs := make([]int, data.k)
 	shares := map[int]int{}
-	for i := 0; i < data.t; i++ {
+	for i := 0; i < data.k; i++ {
 		coefs[i] = rand.Intn(100) // Should probably be secure random
 	}
 	// Could also allow custom polynomial here
@@ -139,7 +139,6 @@ func makeShares(s int, data ProtocolData) map[int]int {
 }
 
 func PlaySecureMPC() {
-
 	// Phase 0 - Configuration
 	fmt.Println("PHASE 0 - Configuration\n")
 
@@ -178,7 +177,7 @@ func PlaySecureMPC() {
 	fmt.Println("PHASE 1 - Create and distribute shares\n")
 
 	// Create the protocol control object
-	protocol := MakeProtocolData(base, n)
+	protocol := MakeProtocolData(base, n, int(math.Floor(float64((n-1)/2))))
 
 	// Create a player (us, ie we are player) and assign the secret
 	player := protocol.GetPlayer(1)
@@ -215,12 +214,12 @@ func PlaySecureMPC() {
 	// Now otherPlayer will recompute the secret
 	otherPlayer := protocol.GetPlayer(idOtherPlayer) // Receiving player
 
-	// We can tolerate t < N/2 corruptions
-	var t = protocol.GetTolerance()
+	// We can tolerate k < N/2 corruptions
+	var k = protocol.GetThreshold()
 
 	// Send shares i=3..c+3 o secret of player, from the respective players, to otherPlayer
 	fmt.Printf("Other players send the secret share they got from us to pid=%d\n", idOtherPlayer)
-	for i := 1; i <= t+2; {
+	for i := 1; i <= k+2; {
 		if !(i == 1 || i == idOtherPlayer) {
 			sendingPlayer := protocol.GetPlayer(i)
 			sendingPlayer.SendShare(1, i, otherPlayer) // Sends the share of i=3..7 received from player to otherPlayer
